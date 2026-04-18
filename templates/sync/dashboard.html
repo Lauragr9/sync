@@ -1,5 +1,21 @@
 {% extends 'base.html' %}
 {% block content %}
-  <h2>Welcome, {{ user.username }}</h2>
-  <p>Your trips will appear here.</p>
+  <h2>Your trips</h2>
+  <a href="{% url 'trip_create' %}">+ New trip</a>
+
+  {% if trips %}
+    {% for trip in trips %}
+      <div>
+        <a href="{% url 'trip_detail' trip.slug %}">
+          <h3>{{ trip.name }}</h3>
+        </a>
+        <p>{{ trip.status }} — {{ trip.budget_range }}</p>
+        {% if trip.departure_date %}
+          <p>{{ trip.departure_date }} → {{ trip.return_date }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No trips yet. Create your first one!</p>
+  {% endif %}
 {% endblock %}

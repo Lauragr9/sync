@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{{ trip.name }}</h2>
+  <p>{{ trip.description }}</p>
+  <p>Status: {{ trip.status }}</p>
+  {% if trip.departure_date %}
+    <p>{{ trip.departure_date }} → {{ trip.return_date }}</p>
+  {% endif %}
+  <p>Budget: {{ trip.get_budget_range_display }}</p>
+
+  <hr>
+
+  <h3>Members ({{ members.count }})</h3>
+  {% for member in members %}
+    <p>{{ member.user.username }} — {{ member.role }}</p>
+  {% endfor %}
+
+  <hr>
+
+  <h3>Invite link</h3>
+  <p>Share this link with your teammates:</p>
+  <code>http://127.0.0.1:8000{% url 'trip_join' trip.invite_token %}</code>
+
+{% endblock %}
