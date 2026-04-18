@@ -55,6 +55,7 @@ class DestinationProposal(models.Model):
     city        = models.CharField(max_length=100)
     country     = models.CharField(max_length=100)
     notes       = models.TextField(blank=True)
+    image_url   = models.URLField(blank=True) 
     created_at  = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -132,6 +133,7 @@ class ItineraryActivity(models.Model):
     title       = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     category    = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
+    place_id    = models.CharField(max_length=100, blank=True)
 
     class Meta:
         ordering = ['time_slot']
