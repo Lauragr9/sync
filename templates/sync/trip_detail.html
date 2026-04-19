@@ -1,73 +1,198 @@
 {% extends 'base.html' %}
 {% load sync_extras %}
 {% block content %}
-  <h2>{{ trip.name }}</h2>
-  <p>{{ trip.description }}</p>
-  <p>Status: {{ trip.status }}</p>
-  {% if trip.departure_date %}
-    <p>{{ trip.departure_date }} → {{ trip.return_date }}</p>
-  {% endif %}
-  <p>Budget: {{ trip.get_budget_range_display }}</p>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h2 class="mb-1">{{ trip.name }}</h2>
+    <p class="text-muted mb-1">{{ trip.description }}</p>
+    {% if trip.departure_date %}
+      <p class="small text-muted mb-0">📅 {{ trip.departure_date }} → {{ trip.return_date }} &nbsp;·&nbsp; {{ trip.get_budget_range_display }} budget</p>
+    {% endif %}
+  </div>
   {% if request.user == trip.lead %}
-  <a href="{% url 'trip_edit' trip.slug %}">Edit trip</a>
+    <a href="{% url 'trip_edit' trip.slug %}" class="btn btn-outline-secondary btn-sm">Edit trip</a>
   {% endif %}
+</div>
 
-  <hr>
+<div class="row g-4">
 
-  <h3>Members ({{ members.count }})</h3>
-  {% for member in members %}
-    <p>{{ member.user.username }} — {{ member.role }}</p>
-  {% endfor %}
+  <div class="col-lg-4">
 
-  
-  <hr>
+    <div class="card p-3 mb-4">
+      <h5 class="mb-3">Members ({{ members.count }})</h5>
+      {% for member in members %}
+        <div class="d-flex align-items-center mb-2">
+          <div style="width:32px;height:32px;border-radius:50%;background:#dee2e6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin-right:10px;">
+            {{ member.user.username|first|upper }}
+          </div>
+          <span>{{ member.user.username }}</span>
+          {% if member.role == 'lead' %}
+            <span class="badge bg-dark ms-2" style="font-size:10px;">lead</span>
+          {% endif %}
+        </div>
+      {% endfor %}
+      <hr>
+      <p class="small text-muted mb-1">Invite link:</p>
+      <code style="font-size:11px;word-break:break-all;">http://127.0.0.1:8000{% url 'trip_join' trip.invite_token %}</code>
+    </div>
 
-  <h3>Availability</h3>
+    <div class="card p-3">
+      <h5 class="mb-3">Destinations</h5>
+      <a href="{% url 'proposal_create' trip.slug %}" class="btn btn-outline-dark btn-sm w-100 mb-3">+ Propose a destination</a>
 
-  {% if dates %}
-  <div style="overflow-x:auto">
-    <table style="border-collapse:collapse; font-size:13px;">
-      <thead>
-        <tr>
-          <th style="padding:6px 10px; text-align:left;">Member</th>
-          {% for date in dates %}
-            <th style="padding:6px 8px; text-align:center;">
-              {{ date|date:"D d" }}
-            </th>
-          {% endfor %}
-        </tr>
-      </thead>
-     
-      <tbody>
-  {% for member in members %}
-  <tr>
-    <td style="padding:6px 10px; font-weight:500;">{{ member.user.username }}</td>
-    {% for date in dates %}
-    <td style="padding:4px; text-align:center;">
-      {% get_avail grid member.user.id date as current_status %}
-      {% if member.user == request.user %}
-       {% with date_str=date|date:"Y-m-d" %}
-          <select onchange="setAvailability('{{ date_str }}', this.value)" style="font-size:12px;">
-          <option value="">—</option>
-          <option value="available" {% if current_status == "available" %}selected{% endif %}>Yes</option>
-          <option value="maybe" {% if current_status == "maybe" %}selected{% endif %}>Maybe</option>
-          <option value="unavailable" {% if current_status == "unavailable" %}selected{% endif %}>No</option>
-        </select>
-        {% endwith %}
+      {% if proposals_with_scores %}
+        {% for item in proposals_with_scores %}
+        <div class="mb-3 pb-3 border-bottom">
+          {% if item.proposal.image_url %}
+            <img src="{{ item.proposal.image_url }}" alt="{{ item.proposal.city }}" class="rounded mb-2" style="width:100%;height:120px;object-fit:cover;">
+          {% endif %}
+          <div class="d-flex justify-content-between align-items-center">
+            <strong>{{ item.proposal.city }}, {{ item.proposal.country }}</strong>
+            <span class="score-badge">{{ item.total }}</span>
+          </div>
+          {% if item.proposal.notes %}
+            <p class="small text-muted mb-2">{{ item.proposal.notes }}</p>
+          {% endif %}
+          <div class="btn-group w-100 mb-1" role="group">
+            <form method="post" action="{% url 'vote' item.proposal.id %}" style="flex:1">
+              {% csrf_token %}
+              <input type="hidden" name="score" value="1">
+              <button class="btn btn-sm w-100 {% if item.user_vote == 1 %}btn-success{% else %}btn-outline-success{% endif %}">Yes</button>
+            </form>
+            <form method="post" action="{% url 'vote' item.proposal.id %}" style="flex:1">
+              {% csrf_token %}
+              <input type="hidden" name="score" value="0">
+              <button class="btn btn-sm w-100 {% if item.user_vote == 0 %}btn-warning{% else %}btn-outline-warning{% endif %}">Maybe</button>
+            </form>
+            <form method="post" action="{% url 'vote' item.proposal.id %}" style="flex:1">
+              {% csrf_token %}
+              <input type="hidden" name="score" value="-1">
+              <button class="btn btn-sm w-100 {% if item.user_vote == -1 %}btn-danger{% else %}btn-outline-danger{% endif %}">No</button>
+            </form>
+          </div>
+          <p class="small text-muted mb-0">by {{ item.proposal.proposed_by.username }}
+            {% if request.user == item.proposal.proposed_by %}
+              · <a href="{% url 'proposal_edit' item.proposal.id %}">edit</a>
+            {% endif %}
+          </p>
+        </div>
+        {% endfor %}
       {% else %}
-        {% if current_status == "available" %}<span style="color:green">Yes</span>
-        {% elif current_status == "maybe" %}<span style="color:orange">Maybe</span>
-        {% elif current_status == "unavailable" %}<span style="color:red">No</span>
-        {% else %}<span style="color:#ccc">—</span>{% endif %}
+        <p class="text-muted small">No destinations proposed yet.</p>
       {% endif %}
-    </td>
-    {% endfor %}
-  </tr>
-  {% endfor %}
-</tbody>
+    </div>
 
-  <script>
+  </div>
 
+  <div class="col-lg-8">
+
+    <div class="card p-3 mb-4">
+      <h5 class="mb-3">Availability</h5>
+      {% if dates %}
+      <div style="overflow-x:auto">
+        <table class="table table-sm availability-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              {% for date in dates %}
+                <th class="text-center">{{ date|date:"D d" }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in members %}
+            <tr>
+              <td class="fw-500">{{ member.user.username }}</td>
+              {% for date in dates %}
+              <td class="text-center">
+                {% get_avail grid member.user.id date as current_status %}
+                {% if member.user == request.user %}
+                  {% with date_str=date|date:"Y-m-d" %}
+                  <select onchange="setAvailability('{{ date_str }}', this.value)" class="form-select form-select-sm" style="font-size:11px;padding:2px 4px;min-width:70px;">
+                    <option value="">—</option>
+                    <option value="available" {% if current_status == "available" %}selected{% endif %}>Yes</option>
+                    <option value="maybe" {% if current_status == "maybe" %}selected{% endif %}>Maybe</option>
+                    <option value="unavailable" {% if current_status == "unavailable" %}selected{% endif %}>No</option>
+                  </select>
+                  {% endwith %}
+                {% else %}
+                  {% if current_status == "available" %}<span class="text-success fw-bold">Yes</span>
+                  {% elif current_status == "maybe" %}<span class="text-warning fw-bold">?</span>
+                  {% elif current_status == "unavailable" %}<span class="text-danger fw-bold">No</span>
+                  {% else %}<span class="text-muted">—</span>{% endif %}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-muted small">Set departure and return dates to enable the availability calendar.</p>
+      {% endif %}
+    </div>
+
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Itinerary</h5>
+        <div class="d-flex gap-2">
+          {% if itinerary and itinerary.status == 'ready' %}
+            <a href="{% url 'itinerary_pdf' trip.slug %}" class="btn btn-outline-dark btn-sm">Download PDF</a>
+          {% endif %}
+          {% if request.user == trip.lead %}
+            <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-dark btn-sm">
+                {% if itinerary and itinerary.status == 'ready' %}Regenerate{% else %}Generate with AI{% endif %}
+              </button>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if itinerary %}
+        {% if itinerary.status == 'generating' %}
+          <p class="text-muted">Generating... refresh in a few seconds.</p>
+        {% elif itinerary.status == 'failed' %}
+          <p class="text-danger">Generation failed. Try again.</p>
+        {% elif itinerary.status == 'ready' %}
+          {% for day in itinerary.days.all %}
+          <div class="mb-4">
+            <h6 class="fw-bold border-bottom pb-1 mb-2">
+              Day {{ day.day_number }} — {{ day.date }} — {{ day.location }}
+            </h6>
+            {% if day.theme %}
+              <p class="text-muted small fst-italic mb-2">{{ day.theme }}</p>
+            {% endif %}
+            {% for activity in day.activities.all %}
+            <div class="activity-card {{ activity.category }}">
+              <div class="d-flex justify-content-between">
+                <strong style="font-size:13px;">{{ activity.time_slot }} — {{ activity.title }}</strong>
+                <span class="badge bg-light text-dark badge-category">{{ activity.category }}</span>
+              </div>
+              <p class="mb-0 mt-1" style="font-size:12px;color:#555;">{{ activity.description }}</p>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        {% endif %}
+      {% else %}
+        <p class="text-muted small">
+          {% if request.user == trip.lead %}
+            Click "Generate with AI" to create your itinerary.
+          {% else %}
+            The trip lead can generate an itinerary.
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+<script>
 function getCookie(name) {
   let cookieValue = null;
   if (document.cookie && document.cookie !== '') {
@@ -82,7 +207,6 @@ function getCookie(name) {
   }
   return cookieValue;
 }
-
 function setAvailability(date, status) {
   fetch("{% url 'availability' trip.slug %}", {
     method: 'POST',
@@ -91,117 +215,8 @@ function setAvailability(date, status) {
       'X-CSRFToken': getCookie('csrftoken')
     },
     body: 'date=' + date + '&status=' + status
-  }).then(response => {
-    if (response.ok) {
-      console.log('Saved:', date, status);
-    }
   });
 }
 </script>
-  </script>
-
-  {% else %}
-    <p>Set departure and return dates on the trip to enable the availability calendar.</p>
-  {% endif %}
-
-  <h3>Destinations</h3>
-  <a href="{% url 'proposal_create' trip.slug %}">+ Propose a destination</a>
-
-  {% if proposals_with_scores %}
-    {% for item in proposals_with_scores %}
-      <div style="border:1px solid #ccc; padding:1rem; margin:1rem 0;">
-        <h4>{{ item.proposal.city }}, {{ item.proposal.country }}</h4>
-        {% if item.proposal.image_url %}
-        <img src="{{ item.proposal.image_url }}" alt="{{ item.proposal.city }}" style="width:100%; max-width:400px;">
-        {% endif %}
-        {% if item.proposal.notes %}
-          <p>{{ item.proposal.notes }}</p>
-        {% endif %}
-
-        <p>Score: {{ item.total }}</p>
-
-        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
-          {% csrf_token %}
-          <input type="hidden" name="score" value="1">
-          <button type="submit" {% if item.user_vote == 1 %}style="font-weight:bold"{% endif %}>
-            Yes
-          </button>
-        </form>
-
-        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
-          {% csrf_token %}
-          <input type="hidden" name="score" value="0">
-          <button type="submit" {% if item.user_vote == 0 %}style="font-weight:bold"{% endif %}>
-            Maybe
-          </button>
-        </form>
-
-        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
-          {% csrf_token %}
-          <input type="hidden" name="score" value="-1">
-          <button type="submit" {% if item.user_vote == -1 %}style="font-weight:bold"{% endif %}>
-            No
-          </button>
-        </form>
-
-        <p>Proposed by {{ item.proposal.proposed_by.username }}</p>
-        {% if request.user == item.proposal.proposed_by %}
-         <a href="{% url 'proposal_edit' item.proposal.id %}">Edit</a>
-        {% endif %}
-      </div>
-    {% endfor %}
-  {% else %}
-    <p>No destinations proposed yet.</p>
-  {% endif %}
-
-  <hr>
-
-<h3>Itinerary</h3>
-
-{% if request.user == trip.lead %}
-  <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
-    {% csrf_token %}
-    <button type="submit">
-      {% if itinerary and itinerary.status == 'ready' %}
-        {% if itinerary and itinerary.status == 'ready' %}
-         <a href="{% url 'itinerary_pdf' trip.slug %}">
-            Download PDF
-         </a>
-      {% endif %}
-      {% else %}
-        Generate itinerary with AI
-      {% endif %}
-    </button>
-  </form>
-{% endif %}
-
-{% if itinerary %}
-  {% if itinerary.status == 'generating' %}
-    <p>Generating... refresh in a few seconds.</p>
-  {% elif itinerary.status == 'failed' %}
-    <p>Generation failed. Try again.</p>
-  {% elif itinerary.status == 'ready' %}
-    {% for day in itinerary.days.all %}
-      <div style="border:1px solid #ccc; padding:1rem; margin:1rem 0; border-radius:8px;">
-        <h4>Day {{ day.day_number }} — {{ day.date }} — {{ day.location }}</h4>
-        {% if day.theme %}<p><em>{{ day.theme }}</em></p>{% endif %}
-        {% for activity in day.activities.all %}
-          <div style="margin:0.5rem 0; padding:0.5rem; background:#f9f9f9; border-radius:4px;">
-            <strong>{{ activity.time_slot }} — {{ activity.title }}</strong>
-            <span style="font-size:12px; color:#666; margin-left:8px;">{{ activity.category }}</span>
-            <p style="margin:4px 0 0; font-size:14px;">{{ activity.description }}</p>
-          </div>
-        {% endfor %}
-      </div>
-    {% endfor %}
-  {% endif %}
-{% else %}
-  <p>No itinerary yet. {% if request.user == trip.lead %}Click the button above to generate one.{% else %}The trip lead can generate one.{% endif %}</p>
-{% endif %}
-
-<hr>
-  <h3>Invite link</h3>
-  <p>Share this with teammates:</p>
-  <code>http://127.0.0.1:8000{% url 'trip_join' trip.invite_token %}</code>
 
 {% endblock %}

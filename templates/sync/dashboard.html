@@ -1,21 +1,34 @@
 {% extends 'base.html' %}
 {% block content %}
-  <h2>Your trips</h2>
-  <a href="{% url 'trip_create' %}">+ New trip</a>
 
-  {% if trips %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Your trips</h2>
+  <a href="{% url 'trip_create' %}" class="btn btn-dark">+ New trip</a>
+</div>
+
+{% if trips %}
+  <div class="row g-3">
     {% for trip in trips %}
-      <div>
-        <a href="{% url 'trip_detail' trip.slug %}">
-          <h3>{{ trip.name }}</h3>
-        </a>
-        <p>{{ trip.status }} — {{ trip.budget_range }}</p>
-        {% if trip.departure_date %}
-          <p>{{ trip.departure_date }} → {{ trip.return_date }}</p>
-        {% endif %}
-      </div>
+    <div class="col-md-6 col-lg-4">
+      <a href="{% url 'trip_detail' trip.slug %}" class="text-decoration-none">
+        <div class="card h-100 p-3">
+          <h5 class="card-title text-dark">{{ trip.name }}</h5>
+          <p class="text-muted small mb-2">{{ trip.description|truncatewords:12 }}</p>
+          {% if trip.departure_date %}
+            <p class="small mb-1">📅 {{ trip.departure_date }} → {{ trip.return_date }}</p>
+          {% endif %}
+          <span class="badge bg-secondary">{{ trip.get_budget_range_display }}</span>
+        </div>
+      </a>
+    </div>
     {% endfor %}
-  {% else %}
-    <p>No trips yet. Create your first one!</p>
-  {% endif %}
+  </div>
+{% else %}
+  <div class="text-center py-5">
+    <h4 class="text-muted">No trips yet</h4>
+    <p class="text-muted">Create your first trip and invite your friends</p>
+    <a href="{% url 'trip_create' %}" class="btn btn-dark">Create a trip</a>
+  </div>
+{% endif %}
+
 {% endblock %}
