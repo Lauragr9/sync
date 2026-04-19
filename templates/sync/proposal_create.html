@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Propose a destination for {{ trip.name }}</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Submit proposal</button>
+  </form>
+  <a href="{% url 'trip_detail' trip.slug %}">Cancel</a>
+{% endblock %}

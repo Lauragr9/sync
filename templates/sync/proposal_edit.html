@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Edit proposal — {{ proposal.city }}, {{ proposal.country }}</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save changes</button>
+  </form>
+  <a href="{% url 'trip_detail' proposal.trip.slug %}">Cancel</a>
+{% endblock %}

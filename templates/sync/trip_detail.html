@@ -7,6 +7,9 @@
     <p>{{ trip.departure_date }} → {{ trip.return_date }}</p>
   {% endif %}
   <p>Budget: {{ trip.get_budget_range_display }}</p>
+  {% if request.user == trip.lead %}
+  <a href="{% url 'trip_edit' trip.slug %}">Edit trip</a>
+  {% endif %}
 
   <hr>
 
@@ -17,8 +20,60 @@
 
   <hr>
 
+  <h3>Destinations</h3>
+  <a href="{% url 'proposal_create' trip.slug %}">+ Propose a destination</a>
+
+  {% if proposals_with_scores %}
+    {% for item in proposals_with_scores %}
+      <div style="border:1px solid #ccc; padding:1rem; margin:1rem 0;">
+        <h4>{{ item.proposal.city }}, {{ item.proposal.country }}</h4>
+        {% if item.proposal.image_url %}
+        <img src="{{ item.proposal.image_url }}" alt="{{ item.proposal.city }}" style="width:100%; max-width:400px;">
+        {% endif %}
+        {% if item.proposal.notes %}
+          <p>{{ item.proposal.notes }}</p>
+        {% endif %}
+
+        <p>Score: {{ item.total }}</p>
+
+        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="score" value="1">
+          <button type="submit" {% if item.user_vote == 1 %}style="font-weight:bold"{% endif %}>
+            Yes
+          </button>
+        </form>
+
+        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="score" value="0">
+          <button type="submit" {% if item.user_vote == 0 %}style="font-weight:bold"{% endif %}>
+            Maybe
+          </button>
+        </form>
+
+        <form method="post" action="{% url 'vote' item.proposal.id %}" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="score" value="-1">
+          <button type="submit" {% if item.user_vote == -1 %}style="font-weight:bold"{% endif %}>
+            No
+          </button>
+        </form>
+
+        <p>Proposed by {{ item.proposal.proposed_by.username }}</p>
+        {% if request.user == item.proposal.proposed_by %}
+         <a href="{% url 'proposal_edit' item.proposal.id %}">Edit</a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>No destinations proposed yet.</p>
+  {% endif %}
+
+  <hr>
+
   <h3>Invite link</h3>
-  <p>Share this link with your teammates:</p>
+  <p>Share this with teammates:</p>
   <code>http://127.0.0.1:8000{% url 'trip_join' trip.invite_token %}</code>
 
 {% endblock %}
