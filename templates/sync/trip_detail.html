@@ -163,7 +163,11 @@ function setAvailability(date, status) {
     {% csrf_token %}
     <button type="submit">
       {% if itinerary and itinerary.status == 'ready' %}
-        Regenerate itinerary
+        {% if itinerary and itinerary.status == 'ready' %}
+         <a href="{% url 'itinerary_pdf' trip.slug %}">
+            Download PDF
+         </a>
+      {% endif %}
       {% else %}
         Generate itinerary with AI
       {% endif %}

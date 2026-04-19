@@ -12,7 +12,7 @@ from .models import Trip, TripMember, DestinationProposal, Vote, Availability
 from django.utils import timezone
 from .llm import generate_itinerary as llm_generate
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity
-
+from django.http import HttpResponse
 
 @login_required
 def dashboard(request):
@@ -259,3 +259,20 @@ def itinerary_generate(request, slug):
             itinerary.save()
 
     return redirect('trip_detail', slug=slug)
+@login_required
+def itinerary_pdf(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+    
+    itinerary = None
+    try:
+        itinerary = trip.itinerary
+    except:
+        pass
+
+    if not itinerary or itinerary.status != 'ready':
+        return redirect('trip_detail', slug=slug)
+
+    return render(request, 'sync/itinerary_pdf.html', {
+        'trip': trip,
+        'itinerary': itinerary,
+    })
