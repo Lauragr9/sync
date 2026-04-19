@@ -156,6 +156,46 @@ function setAvailability(date, status) {
 
   <hr>
 
+<h3>Itinerary</h3>
+
+{% if request.user == trip.lead %}
+  <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
+    {% csrf_token %}
+    <button type="submit">
+      {% if itinerary and itinerary.status == 'ready' %}
+        Regenerate itinerary
+      {% else %}
+        Generate itinerary with AI
+      {% endif %}
+    </button>
+  </form>
+{% endif %}
+
+{% if itinerary %}
+  {% if itinerary.status == 'generating' %}
+    <p>Generating... refresh in a few seconds.</p>
+  {% elif itinerary.status == 'failed' %}
+    <p>Generation failed. Try again.</p>
+  {% elif itinerary.status == 'ready' %}
+    {% for day in itinerary.days.all %}
+      <div style="border:1px solid #ccc; padding:1rem; margin:1rem 0; border-radius:8px;">
+        <h4>Day {{ day.day_number }} — {{ day.date }} — {{ day.location }}</h4>
+        {% if day.theme %}<p><em>{{ day.theme }}</em></p>{% endif %}
+        {% for activity in day.activities.all %}
+          <div style="margin:0.5rem 0; padding:0.5rem; background:#f9f9f9; border-radius:4px;">
+            <strong>{{ activity.time_slot }} — {{ activity.title }}</strong>
+            <span style="font-size:12px; color:#666; margin-left:8px;">{{ activity.category }}</span>
+            <p style="margin:4px 0 0; font-size:14px;">{{ activity.description }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endif %}
+{% else %}
+  <p>No itinerary yet. {% if request.user == trip.lead %}Click the button above to generate one.{% else %}The trip lead can generate one.{% endif %}</p>
+{% endif %}
+
+<hr>
   <h3>Invite link</h3>
   <p>Share this with teammates:</p>
   <code>http://127.0.0.1:8000{% url 'trip_join' trip.invite_token %}</code>

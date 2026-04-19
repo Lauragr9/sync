@@ -9,6 +9,9 @@ from .models import Trip, TripMember, DestinationProposal, Vote
 import json
 from datetime import timedelta
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability
+from django.utils import timezone
+from .llm import generate_itinerary as llm_generate
+from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity
 
 
 @login_required
@@ -88,10 +91,18 @@ def trip_detail(request, slug):
             current += timedelta(days=1)
 
     # Build availability grid: {user_id: {date_str: status}}
+
     avail_qs = Availability.objects.filter(trip=trip).select_related('user')
     grid = {}
     for a in avail_qs:
         grid.setdefault(a.user_id, {})[str(a.date)] = a.status
+
+    # Get itinerary if it exists
+    itinerary = None
+    try:
+        itinerary = trip.itinerary
+    except:
+        pass
 
     return render(request, 'sync/trip_detail.html', {
         'trip': trip,
@@ -99,6 +110,7 @@ def trip_detail(request, slug):
         'proposals_with_scores': proposals_with_scores,
         'dates': dates,
         'grid': grid,
+        'itinerary': itinerary,
     })
 
 @login_required
@@ -201,3 +213,49 @@ def availability(request, slug):
 
 
     return JsonResponse({'error': 'GET not allowed'}, status=405)
+
+@login_required
+def itinerary_generate(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+
+    if request.user != trip.lead:
+        return redirect('trip_detail', slug=slug)
+
+    if request.method == 'POST':
+        itinerary, _ = Itinerary.objects.get_or_create(trip=trip)
+        itinerary.status = 'generating'
+        itinerary.save()
+
+        try:
+            data, raw = llm_generate(trip)
+
+            itinerary.days.all().delete()
+
+            for d in data['days']:
+                day = ItineraryDay.objects.create(
+                    itinerary=itinerary,
+                    day_number=d['day_number'],
+                    date=d['date'],
+                    location=d['location'],
+                    theme=d.get('theme', ''),
+                )
+                for a in d['activities']:
+                    ItineraryActivity.objects.create(
+                        day=day,
+                        time_slot=a['time_slot'],
+                        title=a['title'],
+                        description=a.get('description', ''),
+                        category=a['category'],
+                    )
+
+            itinerary.status = 'ready'
+            itinerary.llm_raw = raw
+            itinerary.generated_at = timezone.now()
+            itinerary.save()
+
+        except Exception as e:
+            print(f"LLM Error: {e}")
+            itinerary.status = 'failed'
+            itinerary.save()
+
+    return redirect('trip_detail', slug=slug)

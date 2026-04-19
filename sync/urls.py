@@ -12,4 +12,5 @@ urlpatterns = [
     path('trips/<slug:slug>/edit/', views.trip_edit, name='trip_edit'),
     path('proposals/<int:proposal_id>/edit/', views.proposal_edit, name='proposal_edit'),
     path('trips/<slug:slug>/availability/', views.availability, name='availability'),
+    path('trips/<slug:slug>/generate/', views.itinerary_generate, name='itinerary_generate'),
 ]
