@@ -11,4 +11,5 @@ urlpatterns = [
     path('proposals/<int:proposal_id>/vote/', views.vote, name='vote'),
     path('trips/<slug:slug>/edit/', views.trip_edit, name='trip_edit'),
     path('proposals/<int:proposal_id>/edit/', views.proposal_edit, name='proposal_edit'),
+    path('trips/<slug:slug>/availability/', views.availability, name='availability'),
 ]

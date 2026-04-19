@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load sync_extras %}
 {% block content %}
   <h2>{{ trip.name }}</h2>
   <p>{{ trip.description }}</p>
@@ -18,7 +19,90 @@
     <p>{{ member.user.username }} — {{ member.role }}</p>
   {% endfor %}
 
+  
   <hr>
+
+  <h3>Availability</h3>
+
+  {% if dates %}
+  <div style="overflow-x:auto">
+    <table style="border-collapse:collapse; font-size:13px;">
+      <thead>
+        <tr>
+          <th style="padding:6px 10px; text-align:left;">Member</th>
+          {% for date in dates %}
+            <th style="padding:6px 8px; text-align:center;">
+              {{ date|date:"D d" }}
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+     
+      <tbody>
+  {% for member in members %}
+  <tr>
+    <td style="padding:6px 10px; font-weight:500;">{{ member.user.username }}</td>
+    {% for date in dates %}
+    <td style="padding:4px; text-align:center;">
+      {% get_avail grid member.user.id date as current_status %}
+      {% if member.user == request.user %}
+       {% with date_str=date|date:"Y-m-d" %}
+          <select onchange="setAvailability('{{ date_str }}', this.value)" style="font-size:12px;">
+          <option value="">—</option>
+          <option value="available" {% if current_status == "available" %}selected{% endif %}>Yes</option>
+          <option value="maybe" {% if current_status == "maybe" %}selected{% endif %}>Maybe</option>
+          <option value="unavailable" {% if current_status == "unavailable" %}selected{% endif %}>No</option>
+        </select>
+        {% endwith %}
+      {% else %}
+        {% if current_status == "available" %}<span style="color:green">Yes</span>
+        {% elif current_status == "maybe" %}<span style="color:orange">Maybe</span>
+        {% elif current_status == "unavailable" %}<span style="color:red">No</span>
+        {% else %}<span style="color:#ccc">—</span>{% endif %}
+      {% endif %}
+    </td>
+    {% endfor %}
+  </tr>
+  {% endfor %}
+</tbody>
+
+  <script>
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+function setAvailability(date, status) {
+  fetch("{% url 'availability' trip.slug %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: 'date=' + date + '&status=' + status
+  }).then(response => {
+    if (response.ok) {
+      console.log('Saved:', date, status);
+    }
+  });
+}
+</script>
+  </script>
+
+  {% else %}
+    <p>Set departure and return dates on the trip to enable the availability calendar.</p>
+  {% endif %}
 
   <h3>Destinations</h3>
   <a href="{% url 'proposal_create' trip.slug %}">+ Propose a destination</a>

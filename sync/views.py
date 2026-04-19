@@ -6,6 +6,9 @@ from django.http import JsonResponse
 from django.utils.text import slugify
 from .forms import TripForm, ProposalForm
 from .models import Trip, TripMember, DestinationProposal, Vote
+import json
+from datetime import timedelta
+from .models import Trip, TripMember, DestinationProposal, Vote, Availability
 
 
 @login_required
@@ -74,15 +77,29 @@ def trip_detail(request, slug):
             'total': total,
             'user_vote': user_votes.get(p.id),
         })
-
     proposals_with_scores.sort(key=lambda x: x['total'], reverse=True)
+
+    # Build date range
+    dates = []
+    if trip.departure_date and trip.return_date:
+        current = trip.departure_date
+        while current <= trip.return_date:
+            dates.append(current)
+            current += timedelta(days=1)
+
+    # Build availability grid: {user_id: {date_str: status}}
+    avail_qs = Availability.objects.filter(trip=trip).select_related('user')
+    grid = {}
+    for a in avail_qs:
+        grid.setdefault(a.user_id, {})[str(a.date)] = a.status
 
     return render(request, 'sync/trip_detail.html', {
         'trip': trip,
         'members': members,
         'proposals_with_scores': proposals_with_scores,
+        'dates': dates,
+        'grid': grid,
     })
-
 
 @login_required
 def trip_join(request, token):
@@ -160,3 +177,27 @@ def proposal_edit(request, proposal_id):
         'form': form,
         'proposal': proposal,
     })
+
+@login_required
+def availability(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+    
+    if request.method == 'POST':
+        try:
+            date = request.POST.get('date')
+            status = request.POST.get('status')
+            print(f"Saving availability: trip={trip.id}, user={request.user.id}, date={date}, status={status}")
+            Availability.objects.update_or_create(
+                trip=trip,
+                user=request.user,
+                date=date,
+                defaults={'status': status}
+            )
+            print("Saved successfully!")
+            return JsonResponse({'ok': True})
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+    return JsonResponse({'error': 'GET not allowed'}, status=405)
