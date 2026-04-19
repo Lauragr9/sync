@@ -161,6 +161,33 @@ def vote(request, proposal_id):
     return redirect('trip_detail', slug=proposal.trip.slug)
 
 @login_required
+def trip_confirm(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+    if request.user != trip.lead or request.method != 'POST':
+        return redirect('trip_detail', slug=slug)
+
+    proposal_id = request.POST.get('proposal_id')
+    proposal = get_object_or_404(DestinationProposal, id=proposal_id, trip=trip)
+    trip.confirmed_proposal = proposal
+    trip.status = 'confirmed'
+    trip.save()
+    messages.success(request, f'{proposal.city} confirmed as the destination!')
+    return redirect('trip_detail', slug=slug)
+
+
+@login_required
+def trip_unconfirm(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+    if request.user != trip.lead or request.method != 'POST':
+        return redirect('trip_detail', slug=slug)
+    trip.confirmed_proposal = None
+    trip.status = 'planning'
+    trip.save()
+    messages.success(request, 'Destination unconfirmed. Trip is back to planning.')
+    return redirect('trip_detail', slug=slug)
+
+
+@login_required
 def trip_edit(request, slug):
     trip = get_object_or_404(Trip, slug=slug)
     if request.user != trip.lead:
@@ -191,6 +218,20 @@ def proposal_edit(request, proposal_id):
         'form': form,
         'proposal': proposal,
     })
+
+@login_required
+def proposal_delete(request, proposal_id):
+    proposal = get_object_or_404(DestinationProposal, id=proposal_id)
+    if request.user != proposal.proposed_by:
+        return redirect('trip_detail', slug=proposal.trip.slug)
+    if request.method == 'POST':
+        slug = proposal.trip.slug
+        city = proposal.city
+        proposal.delete()
+        messages.success(request, f'{city} removed from proposals.')
+        return redirect('trip_detail', slug=slug)
+    return render(request, 'sync/proposal_confirm_delete.html', {'proposal': proposal})
+
 
 @login_required
 def availability(request, slug):

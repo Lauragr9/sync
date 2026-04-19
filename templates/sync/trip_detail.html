@@ -4,7 +4,13 @@
 
 <div class="d-flex justify-content-between align-items-start mb-4">
   <div>
-    <h2 class="mb-1">{{ trip.name }}</h2>
+    <h2 class="mb-1">{{ trip.name }}
+      <span class="badge ms-2 align-middle
+        {% if trip.status == 'confirmed' %}bg-success
+        {% elif trip.status == 'completed' %}bg-secondary
+        {% else %}bg-warning text-dark{% endif %}"
+        style="font-size:13px;">{{ trip.get_status_display }}</span>
+    </h2>
     <p class="text-muted mb-1">{{ trip.description }}</p>
     {% if trip.departure_date %}
       <p class="small text-muted mb-0">📅 {{ trip.departure_date }} → {{ trip.return_date }} &nbsp;·&nbsp; {{ trip.get_budget_range_display }} budget</p>
@@ -14,6 +20,25 @@
     <a href="{% url 'trip_edit' trip.slug %}" class="btn btn-outline-secondary btn-sm">Edit trip</a>
   {% endif %}
 </div>
+
+{% if trip.confirmed_proposal %}
+<div class="alert mb-4 d-flex align-items-center gap-3" style="background:#d1e7dd;border:none;border-radius:10px;padding:1rem 1.25rem;">
+  <div style="font-size:2rem;">📍</div>
+  <div class="flex-grow-1">
+    <div class="fw-bold" style="font-size:1.1rem;">{{ trip.confirmed_proposal.city }}, {{ trip.confirmed_proposal.country }}</div>
+    <div class="small text-success-emphasis">Confirmed destination</div>
+    {% if trip.confirmed_proposal.notes %}
+      <div class="small text-muted mt-1">{{ trip.confirmed_proposal.notes }}</div>
+    {% endif %}
+  </div>
+  {% if request.user == trip.lead %}
+    <form method="post" action="{% url 'trip_unconfirm' trip.slug %}">
+      {% csrf_token %}
+      <button class="btn btn-sm btn-outline-secondary">Undo</button>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="row g-4">
 
@@ -71,11 +96,27 @@
               <button class="btn btn-sm w-100 {% if item.user_vote == -1 %}btn-danger{% else %}btn-outline-danger{% endif %}">No</button>
             </form>
           </div>
-          <p class="small text-muted mb-0">by {{ item.proposal.proposed_by.username }}
-            {% if request.user == item.proposal.proposed_by %}
-              · <a href="{% url 'proposal_edit' item.proposal.id %}">edit</a>
-            {% endif %}
-          </p>
+          <div class="d-flex justify-content-between align-items-center mt-1">
+            <p class="small text-muted mb-0">by {{ item.proposal.proposed_by.username }}
+              {% if request.user == item.proposal.proposed_by %}
+                · <a href="{% url 'proposal_edit' item.proposal.id %}">edit</a>
+              {% endif %}
+            </p>
+            <div class="d-flex gap-1">
+              {% if request.user == trip.lead and trip.status == 'planning' %}
+                <form method="post" action="{% url 'trip_confirm' trip.slug %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="proposal_id" value="{{ item.proposal.id }}">
+                  <button class="btn btn-sm btn-outline-success">Confirm ✓</button>
+                </form>
+              {% elif trip.confirmed_proposal.id == item.proposal.id %}
+                <span class="badge bg-success">Confirmed</span>
+              {% endif %}
+              {% if request.user == item.proposal.proposed_by %}
+                <a href="{% url 'proposal_delete' item.proposal.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+              {% endif %}
+            </div>
+          </div>
         </div>
         {% endfor %}
       {% else %}

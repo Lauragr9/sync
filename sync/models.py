@@ -22,12 +22,14 @@ class Trip(models.Model):
     departure_date = models.DateField(null=True, blank=True)
     return_date    = models.DateField(null=True, blank=True)
     budget_range   = models.CharField(max_length=20, choices=BUDGET_CHOICES, default='mid')
-    invite_token   = models.UUIDField(default=uuid.uuid4, unique=True)
-    lead           = models.ForeignKey(User, on_delete=models.SET_NULL,
-                         null=True, related_name='led_trips')
-    members        = models.ManyToManyField(User, through='TripMember',
-                         related_name='trips')
-    created_at     = models.DateTimeField(auto_now_add=True)
+    invite_token        = models.UUIDField(default=uuid.uuid4, unique=True)
+    lead                = models.ForeignKey(User, on_delete=models.SET_NULL,
+                              null=True, related_name='led_trips')
+    members             = models.ManyToManyField(User, through='TripMember',
+                              related_name='trips')
+    confirmed_proposal  = models.ForeignKey('DestinationProposal', on_delete=models.SET_NULL,
+                              null=True, blank=True, related_name='+')
+    created_at          = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
