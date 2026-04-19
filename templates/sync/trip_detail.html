@@ -175,6 +175,47 @@
       {% endif %}
     </div>
 
+    <div class="card p-3 mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Packing list</h5>
+        <span class="text-muted small">{{ packing_items|length }} item{{ packing_items|length|pluralize }}</span>
+      </div>
+
+      <form method="post" action="{% url 'packing_add' trip.slug %}" class="d-flex gap-2 mb-3">
+        {% csrf_token %}
+        <input type="text" name="name" placeholder="Item name" class="form-control form-control-sm" required style="max-width:200px;">
+        <input type="text" name="category" placeholder="Category (optional)" class="form-control form-control-sm" style="max-width:160px;">
+        <button class="btn btn-dark btn-sm">Add</button>
+      </form>
+
+      {% if packing_items %}
+        {% regroup packing_items by category as grouped_items %}
+        {% for group in grouped_items %}
+          {% if group.grouper %}
+            <p class="text-muted small fw-semibold text-uppercase mb-1" style="letter-spacing:.5px;">{{ group.grouper }}</p>
+          {% endif %}
+          {% for item in group.list %}
+          <div class="d-flex align-items-center gap-2 py-2 border-bottom {% if item.is_packed %}opacity-50{% endif %}">
+            <form method="post" action="{% url 'packing_toggle' item.id %}" class="mb-0">
+              {% csrf_token %}
+              <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if item.is_packed %}checked{% endif %} style="cursor:pointer;width:18px;height:18px;">
+            </form>
+            <span class="flex-grow-1 {% if item.is_packed %}text-decoration-line-through text-muted{% endif %}" style="font-size:14px;">
+              {{ item.name }}
+              {% if item.added_by %}<span class="text-muted" style="font-size:11px;">· {{ item.added_by.username }}</span>{% endif %}
+            </span>
+            <form method="post" action="{% url 'packing_delete' item.id %}" class="mb-0">
+              {% csrf_token %}
+              <button class="btn btn-sm btn-link text-danger p-0" style="font-size:18px;line-height:1;" title="Remove">&times;</button>
+            </form>
+          </div>
+          {% endfor %}
+        {% endfor %}
+      {% else %}
+        <p class="text-muted small">No items yet. Add something above.</p>
+      {% endif %}
+    </div>
+
     <div class="card p-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0">Itineraries</h5>

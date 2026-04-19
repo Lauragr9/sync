@@ -146,8 +146,8 @@ class ItineraryActivity(models.Model):
 class PackingItem(models.Model):
     trip       = models.ForeignKey(Trip, on_delete=models.CASCADE,
                      related_name='packing_items')
-    claimed_by = models.ForeignKey(User, on_delete=models.SET_NULL,
-                     null=True, blank=True, related_name='claimed_items')
+    added_by   = models.ForeignKey(User, on_delete=models.SET_NULL,
+                     null=True, blank=True, related_name='added_items')
     name       = models.CharField(max_length=200)
     category   = models.CharField(max_length=100, blank=True)
     is_packed  = models.BooleanField(default=False)

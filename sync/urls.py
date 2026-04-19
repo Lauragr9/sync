@@ -15,6 +15,9 @@ urlpatterns = [
     path('proposals/<int:proposal_id>/edit/', views.proposal_edit, name='proposal_edit'),
     path('proposals/<int:proposal_id>/delete/', views.proposal_delete, name='proposal_delete'),
     path('trips/<slug:slug>/availability/', views.availability, name='availability'),
+    path('trips/<slug:slug>/packing/add/', views.packing_add, name='packing_add'),
+    path('packing/<int:item_id>/toggle/', views.packing_toggle, name='packing_toggle'),
+    path('packing/<int:item_id>/delete/', views.packing_delete, name='packing_delete'),
     path('trips/<slug:slug>/generate/', views.itinerary_generate, name='itinerary_generate'),
     path('trips/<slug:slug>/itinerary/<int:proposal_id>/pdf/', views.itinerary_pdf, name='itinerary_pdf'),
 ]

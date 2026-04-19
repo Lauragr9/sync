@@ -12,7 +12,7 @@ from datetime import timedelta
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability
 from django.utils import timezone
 from .llm import generate_itinerary as llm_generate
-from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity
+from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity, PackingItem
 from django.http import HttpResponse
 
 @login_required
@@ -104,12 +104,15 @@ def trip_detail(request, slug):
     for a in avail_qs:
         grid.setdefault(a.user_id, {})[str(a.date)] = a.status
 
+    packing_items = trip.packing_items.select_related('added_by').order_by('category', 'name')
+
     return render(request, 'sync/trip_detail.html', {
         'trip': trip,
         'members': members,
         'proposals_with_scores': proposals_with_scores,
         'dates': dates,
         'grid': grid,
+        'packing_items': packing_items,
     })
 
 @login_required
@@ -315,6 +318,40 @@ def itinerary_generate(request, slug):
         messages.success(request, f'Itinerary generated for {label}!')
 
     return redirect('trip_detail', slug=slug)
+@login_required
+def packing_add(request, slug):
+    trip = get_object_or_404(Trip, slug=slug)
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        category = request.POST.get('category', '').strip()
+        if name:
+            PackingItem.objects.create(trip=trip, name=name, category=category, added_by=request.user)
+            messages.success(request, f'"{name}" added to the packing list.')
+    return redirect('trip_detail', slug=slug)
+
+
+
+@login_required
+def packing_toggle(request, item_id):
+    item = get_object_or_404(PackingItem, id=item_id)
+    if request.method == 'POST':
+        item.is_packed = not item.is_packed
+        item.save()
+    return redirect('trip_detail', slug=item.trip.slug)
+
+
+@login_required
+def packing_delete(request, item_id):
+    item = get_object_or_404(PackingItem, id=item_id)
+    if request.method == 'POST':
+        slug = item.trip.slug
+        name = item.name
+        item.delete()
+        messages.success(request, f'"{name}" removed from the packing list.')
+        return redirect('trip_detail', slug=slug)
+    return redirect('trip_detail', slug=item.trip.slug)
+
+
 @login_required
 def itinerary_pdf(request, slug, proposal_id):
     trip = get_object_or_404(Trip, slug=slug)
