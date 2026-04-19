@@ -3,6 +3,7 @@ from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.contrib import messages
 from django.utils.text import slugify
 from .forms import TripForm, ProposalForm
 from .models import Trip, TripMember, DestinationProposal, Vote
@@ -72,6 +73,11 @@ def trip_detail(request, slug):
         )
     }
 
+    itineraries_by_proposal = {
+        it.proposal_id: it
+        for it in trip.itineraries.select_related('proposal')
+    }
+
     proposals_with_scores = []
     for p in proposals:
         total = sum(v.score for v in p.votes.all())
@@ -79,6 +85,7 @@ def trip_detail(request, slug):
             'proposal': p,
             'total': total,
             'user_vote': user_votes.get(p.id),
+            'itinerary': itineraries_by_proposal.get(p.id),
         })
     proposals_with_scores.sort(key=lambda x: x['total'], reverse=True)
 
@@ -97,20 +104,12 @@ def trip_detail(request, slug):
     for a in avail_qs:
         grid.setdefault(a.user_id, {})[str(a.date)] = a.status
 
-    # Get itinerary if it exists
-    itinerary = None
-    try:
-        itinerary = trip.itinerary
-    except:
-        pass
-
     return render(request, 'sync/trip_detail.html', {
         'trip': trip,
         'members': members,
         'proposals_with_scores': proposals_with_scores,
         'dates': dates,
         'grid': grid,
-        'itinerary': itinerary,
     })
 
 @login_required
@@ -222,56 +221,60 @@ def itinerary_generate(request, slug):
         return redirect('trip_detail', slug=slug)
 
     if request.method == 'POST':
-        itinerary, _ = Itinerary.objects.get_or_create(trip=trip)
-        itinerary.status = 'generating'
-        itinerary.save()
+        proposal_id = request.POST.get('proposal_id')
+        if proposal_id:
+            proposals = trip.proposals.filter(id=proposal_id)
+        else:
+            proposals = trip.proposals.all()
 
-        try:
-            data, raw = llm_generate(trip)
+        if not proposals.exists():
+            messages.error(request, 'Add at least one destination proposal first.')
+            return redirect('trip_detail', slug=slug)
 
-            itinerary.days.all().delete()
+        for proposal in proposals:
+            itinerary, _ = Itinerary.objects.get_or_create(trip=trip, proposal=proposal)
+            itinerary.status = 'generating'
+            itinerary.save()
 
-            for d in data['days']:
-                day = ItineraryDay.objects.create(
-                    itinerary=itinerary,
-                    day_number=d['day_number'],
-                    date=d['date'],
-                    location=d['location'],
-                    theme=d.get('theme', ''),
-                )
-                for a in d['activities']:
-                    ItineraryActivity.objects.create(
-                        day=day,
-                        time_slot=a['time_slot'],
-                        title=a['title'],
-                        description=a.get('description', ''),
-                        category=a['category'],
+            try:
+                data, raw = llm_generate(trip, proposal)
+                itinerary.days.all().delete()
+
+                for d in data['days']:
+                    day = ItineraryDay.objects.create(
+                        itinerary=itinerary,
+                        day_number=d['day_number'],
+                        date=d['date'],
+                        location=d['location'],
+                        theme=d.get('theme', ''),
                     )
+                    for a in d['activities']:
+                        ItineraryActivity.objects.create(
+                            day=day,
+                            time_slot=a['time_slot'],
+                            title=a['title'],
+                            description=a.get('description', ''),
+                            category=a['category'],
+                        )
 
-            itinerary.status = 'ready'
-            itinerary.llm_raw = raw
-            itinerary.generated_at = timezone.now()
-            itinerary.save()
+                itinerary.status = 'ready'
+                itinerary.llm_raw = raw
+                itinerary.generated_at = timezone.now()
+                itinerary.save()
 
-        except Exception as e:
-            print(f"LLM Error: {e}")
-            itinerary.status = 'failed'
-            itinerary.save()
+            except Exception as e:
+                print(f"LLM Error for {proposal.city}: {e}")
+                itinerary.status = 'failed'
+                itinerary.save()
+
+        label = proposals.first().city if proposal_id else 'all destinations'
+        messages.success(request, f'Itinerary generated for {label}!')
 
     return redirect('trip_detail', slug=slug)
 @login_required
-def itinerary_pdf(request, slug):
+def itinerary_pdf(request, slug, proposal_id):
     trip = get_object_or_404(Trip, slug=slug)
-    
-    itinerary = None
-    try:
-        itinerary = trip.itinerary
-    except:
-        pass
-
-    if not itinerary or itinerary.status != 'ready':
-        return redirect('trip_detail', slug=slug)
-
+    itinerary = get_object_or_404(Itinerary, trip=trip, proposal_id=proposal_id, status='ready')
     return render(request, 'sync/itinerary_pdf.html', {
         'trip': trip,
         'itinerary': itinerary,

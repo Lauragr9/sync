@@ -136,56 +136,96 @@
 
     <div class="card p-3">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Itinerary</h5>
-        <div class="d-flex gap-2">
-          {% if itinerary and itinerary.status == 'ready' %}
-            <a href="{% url 'itinerary_pdf' trip.slug %}" class="btn btn-outline-dark btn-sm">Download PDF</a>
-          {% endif %}
-          {% if request.user == trip.lead %}
-            <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-dark btn-sm">
-                {% if itinerary and itinerary.status == 'ready' %}Regenerate{% else %}Generate with AI{% endif %}
-              </button>
-            </form>
-          {% endif %}
-        </div>
+        <h5 class="mb-0">Itineraries</h5>
+        {% if request.user == trip.lead and proposals_with_scores %}
+          <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-dark btn-sm">Generate all with AI</button>
+          </form>
+        {% endif %}
       </div>
 
-      {% if itinerary %}
-        {% if itinerary.status == 'generating' %}
-          <p class="text-muted">Generating... refresh in a few seconds.</p>
-        {% elif itinerary.status == 'failed' %}
-          <p class="text-danger">Generation failed. Try again.</p>
-        {% elif itinerary.status == 'ready' %}
-          {% for day in itinerary.days.all %}
-          <div class="mb-4">
-            <h6 class="fw-bold border-bottom pb-1 mb-2">
-              Day {{ day.day_number }} — {{ day.date }} — {{ day.location }}
-            </h6>
-            {% if day.theme %}
-              <p class="text-muted small fst-italic mb-2">{{ day.theme }}</p>
-            {% endif %}
-            {% for activity in day.activities.all %}
-            <div class="activity-card {{ activity.category }}">
-              <div class="d-flex justify-content-between">
-                <strong style="font-size:13px;">{{ activity.time_slot }} — {{ activity.title }}</strong>
-                <span class="badge bg-light text-dark badge-category">{{ activity.category }}</span>
-              </div>
-              <p class="mb-0 mt-1" style="font-size:12px;color:#555;">{{ activity.description }}</p>
+      {% if proposals_with_scores %}
+        <ul class="nav nav-tabs mb-3" id="itineraryTabs" role="tablist">
+          {% for item in proposals_with_scores %}
+          <li class="nav-item" role="presentation">
+            <button class="nav-link {% if forloop.first %}active{% endif %}"
+              id="tab-{{ item.proposal.id }}"
+              data-bs-toggle="tab"
+              data-bs-target="#pane-{{ item.proposal.id }}"
+              type="button" role="tab">
+              {{ item.proposal.city }}
+              {% if item.itinerary %}
+                {% if item.itinerary.status == 'ready' %}<span class="badge bg-success ms-1" style="font-size:9px;">ready</span>
+                {% elif item.itinerary.status == 'generating' %}<span class="badge bg-warning ms-1" style="font-size:9px;">...</span>
+                {% elif item.itinerary.status == 'failed' %}<span class="badge bg-danger ms-1" style="font-size:9px;">!</span>
+                {% endif %}
+              {% endif %}
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+
+        <div class="tab-content" id="itineraryTabContent">
+          {% for item in proposals_with_scores %}
+          <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+            id="pane-{{ item.proposal.id }}" role="tabpanel">
+
+            <div class="d-flex justify-content-end gap-2 mb-3">
+              {% if item.itinerary and item.itinerary.status == 'ready' %}
+                <a href="{% url 'itinerary_pdf' trip.slug item.proposal.id %}" class="btn btn-outline-dark btn-sm">Download PDF</a>
+              {% endif %}
+              {% if request.user == trip.lead %}
+                <form method="post" action="{% url 'itinerary_generate' trip.slug %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="proposal_id" value="{{ item.proposal.id }}">
+                  <button type="submit" class="btn btn-outline-secondary btn-sm">
+                    {% if item.itinerary and item.itinerary.status == 'ready' %}Regenerate{% else %}Generate with AI{% endif %}
+                  </button>
+                </form>
+              {% endif %}
             </div>
-            {% endfor %}
+
+            {% if item.itinerary %}
+              {% if item.itinerary.status == 'generating' %}
+                <p class="text-muted">Generating... refresh in a few seconds.</p>
+              {% elif item.itinerary.status == 'failed' %}
+                <p class="text-danger">Generation failed. Try again.</p>
+              {% elif item.itinerary.status == 'ready' %}
+                {% for day in item.itinerary.days.all %}
+                <div class="mb-4">
+                  <h6 class="fw-bold border-bottom pb-1 mb-2">
+                    Day {{ day.day_number }} — {{ day.date }} — {{ day.location }}
+                  </h6>
+                  {% if day.theme %}
+                    <p class="text-muted small fst-italic mb-2">{{ day.theme }}</p>
+                  {% endif %}
+                  {% for activity in day.activities.all %}
+                  <div class="activity-card {{ activity.category }}">
+                    <div class="d-flex justify-content-between">
+                      <strong style="font-size:13px;">{{ activity.time_slot }} — {{ activity.title }}</strong>
+                      <span class="badge bg-light text-dark badge-category">{{ activity.category }}</span>
+                    </div>
+                    <p class="mb-0 mt-1" style="font-size:12px;color:#555;">{{ activity.description }}</p>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endfor %}
+              {% endif %}
+            {% else %}
+              <p class="text-muted small">
+                {% if request.user == trip.lead %}
+                  Click "Generate with AI" to create an itinerary for {{ item.proposal.city }}.
+                {% else %}
+                  The trip lead can generate an itinerary for {{ item.proposal.city }}.
+                {% endif %}
+              </p>
+            {% endif %}
           </div>
           {% endfor %}
-        {% endif %}
+        </div>
       {% else %}
-        <p class="text-muted small">
-          {% if request.user == trip.lead %}
-            Click "Generate with AI" to create your itinerary.
-          {% else %}
-            The trip lead can generate an itinerary.
-          {% endif %}
-        </p>
+        <p class="text-muted small">Propose a destination first to generate an itinerary.</p>
       {% endif %}
     </div>
 

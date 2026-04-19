@@ -99,8 +99,10 @@ class Itinerary(models.Model):
         ('failed', 'Failed'),
     ]
 
-    trip         = models.OneToOneField(Trip, on_delete=models.CASCADE,
-                       related_name='itinerary')
+    trip         = models.ForeignKey(Trip, on_delete=models.CASCADE,
+                       related_name='itineraries')
+    proposal     = models.ForeignKey('DestinationProposal', on_delete=models.CASCADE,
+                       null=True, blank=True, related_name='itineraries')
     llm_raw      = models.TextField(blank=True)
     status       = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     generated_at = models.DateTimeField(null=True, blank=True)

@@ -13,5 +13,5 @@ urlpatterns = [
     path('proposals/<int:proposal_id>/edit/', views.proposal_edit, name='proposal_edit'),
     path('trips/<slug:slug>/availability/', views.availability, name='availability'),
     path('trips/<slug:slug>/generate/', views.itinerary_generate, name='itinerary_generate'),
-    path('trips/<slug:slug>/itinerary/pdf/', views.itinerary_pdf, name='itinerary_pdf'),
+    path('trips/<slug:slug>/itinerary/<int:proposal_id>/pdf/', views.itinerary_pdf, name='itinerary_pdf'),
 ]
