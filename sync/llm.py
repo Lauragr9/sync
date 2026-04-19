@@ -3,6 +3,42 @@ import json
 import re
 from groq import Groq
 
+
+def get_real_places(client, destination, budget):
+    """First pass: ask the model to commit to a verified list of real venues."""
+    prompt = f"""You are a travel expert with deep local knowledge of {destination}.
+
+List real, existing venues in {destination} that suit a {budget} budget.
+Only include places you are certain exist — do not guess or invent names.
+
+Return ONLY raw JSON, no markdown, no code blocks:
+
+{{
+  "restaurants": [
+    {{"name": "Exact restaurant name", "type": "cuisine type", "note": "one known fact"}}
+  ],
+  "hotels": [
+    {{"name": "Exact hotel name", "neighbourhood": "area", "note": "one known fact"}}
+  ],
+  "attractions": [
+    {{"name": "Exact place name", "type": "museum/park/landmark/etc", "note": "one known fact"}}
+  ]
+}}
+
+Include: 10 restaurants, 5 hotels, 10 attractions. Only real places you are highly confident about."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1500,
+    )
+    raw = response.choices[0].message.content
+    clean = re.sub(r'```json|```', '', raw).strip()
+    start = clean.find('{')
+    end = clean.rfind('}') + 1
+    return json.loads(clean[start:end])
+
+
 def generate_itinerary(trip, proposal):
     destination = f"{proposal.city}, {proposal.country}"
 
@@ -13,21 +49,51 @@ def generate_itinerary(trip, proposal):
 
     display_nights = min(nights, 5)
     members_count = trip.members.count()
+    budget = trip.get_budget_range_display()
 
     client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
-    prompt = f"""You are a travel planner. Generate a day-by-day itinerary in JSON.
+    print(f"Pass 1: fetching real venues for {destination}...")
+    try:
+        places = get_real_places(client, destination, budget)
+        restaurants = [f"{p['name']} ({p.get('type', '')} — {p.get('note', '')})" for p in places.get('restaurants', [])]
+        hotels = [f"{p['name']} in {p.get('neighbourhood', '')} — {p.get('note', '')}" for p in places.get('hotels', [])]
+        attractions = [f"{p['name']} ({p.get('type', '')} — {p.get('note', '')})" for p in places.get('attractions', [])]
+
+        places_block = f"""Verified real places in {destination} — use ONLY these:
+
+Restaurants/cafés:
+{chr(10).join(f'- {r}' for r in restaurants)}
+
+Hotels:
+{chr(10).join(f'- {h}' for h in hotels)}
+
+Attractions/museums/parks:
+{chr(10).join(f'- {a}' for a in attractions)}
+
+Do not use any place not on these lists."""
+    except Exception as e:
+        print(f"Pass 1 failed: {e} — falling back to single pass")
+        places_block = f"Use only real, well-known, verifiably existing places in {destination}. Do not invent venue names."
+
+    print(f"Pass 2: generating itinerary for {destination}...")
+    prompt = f"""You are a local travel planner for {destination}. Generate a day-by-day itinerary in JSON.
 
 Trip details:
 - Destination: {destination}
 - Duration: {display_nights} nights
 - Group size: {members_count} people
-- Budget: {trip.get_budget_range_display()}
+- Budget: {budget}
 - Departure: {trip.departure_date}
 
+{places_block}
+
 Rules:
+- Every food activity must name a real restaurant or café from the list above
+- Every accommodation activity must name a real hotel from the list above
+- Every sightseeing activity must name a real attraction from the list above
 - Maximum 3 activities per day
-- Keep descriptions to 1 sentence only
+- Each description must be one sentence mentioning a specific detail (what it's known for, a dish, an opening tip, etc.)
 - Return ONLY raw JSON, no markdown, no code blocks
 - Start with {{ and end with }}
 
@@ -36,13 +102,13 @@ Rules:
     {{
       "day_number": 1,
       "date": "YYYY-MM-DD",
-      "location": "City name",
+      "location": "Neighbourhood or area",
       "theme": "Short theme",
       "activities": [
         {{
           "time_slot": "09:00",
-          "title": "Activity name",
-          "description": "One sentence.",
+          "title": "Real place name — what you will do",
+          "description": "One sentence with a specific detail about this exact place.",
           "category": "activity"
         }}
       ]
@@ -55,7 +121,7 @@ Categories: transport, food, activity, accommodation, free"""
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
+        max_tokens=3000,
     )
 
     raw = response.choices[0].message.content
@@ -75,7 +141,7 @@ Categories: transport, food, activity, accommodation, free"""
                 {"role": "assistant", "content": raw},
                 {"role": "user", "content": "Fix the JSON syntax error. Return ONLY the corrected JSON, nothing else."}
             ],
-            max_tokens=2000,
+            max_tokens=3000,
         )
         raw2 = fix_response.choices[0].message.content
         clean2 = re.sub(r'```json|```', '', raw2).strip()
