@@ -34,6 +34,7 @@ The central table. Everything else connects back to a Trip.
 | `invite_token` | UUIDField | Random unique token for the invite link |
 | `lead` | FK → User | The person who created the trip |
 | `members` | M2M → User | Via TripMember (see below) |
+| `confirmed_proposal` | FK → DestinationProposal | The chosen destination (nullable) — set when lead confirms |
 | `created_at` | DateTimeField | Auto-set on creation |
 
 ---
@@ -64,6 +65,7 @@ A destination that someone has suggested for the trip. A trip can have multiple 
 | `city` | CharField | e.g. "Barcelona" |
 | `country` | CharField | e.g. "Spain" |
 | `notes` | TextField | Optional — why they're suggesting it |
+| `image_url` | URLField | Optional cover image for the proposal |
 | `created_at` | DateTimeField | Auto-set |
 
 ---
@@ -98,12 +100,13 @@ One row per user per date per trip. Tracks who can make which dates.
 ---
 
 ### Itinerary
-The AI-generated itinerary for a trip. One itinerary per trip (OneToOne).
+The AI-generated itinerary for a trip. One itinerary is created **per destination proposal** — a trip with 3 proposals can have up to 3 itineraries.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | Integer | Primary key |
-| `trip` | OneToOne → Trip | One itinerary per trip |
+| `trip` | FK → Trip | Which trip |
+| `proposal` | FK → DestinationProposal | Which proposal this itinerary is for (nullable) |
 | `llm_raw` | TextField | The raw JSON response from the LLM |
 | `status` | CharField | `pending` / `generating` / `ready` / `failed` |
 | `generated_at` | DateTimeField | When the LLM finished |
@@ -149,7 +152,7 @@ An item on the group packing list. Can be claimed by one person.
 |---|---|---|
 | `id` | Integer | Primary key |
 | `trip` | FK → Trip | Which trip |
-| `claimed_by` | FK → User | Who is bringing it (nullable) |
+| `added_by` | FK → User | Who added the item (nullable) |
 | `name` | CharField | e.g. "First aid kit" |
 | `category` | CharField | Optional — e.g. "Medical" |
 | `is_packed` | BooleanField | False by default |
@@ -161,5 +164,6 @@ An item on the group packing list. Can be claimed by one person.
 - **Never use `trip.members.add()`** — because members is a ManyToMany through TripMember, you must create `TripMember` objects directly.
 - **Votes are unique per user per proposal** — use `update_or_create` when saving a vote, never bare `create()`.
 - **Availability is unique per user per date per trip** — same rule, use `update_or_create`.
-- **Itinerary is OneToOne with Trip** — there can only ever be one itinerary per trip.
+- **Itinerary is per proposal, not per trip** — use `trip.itineraries.filter(proposal=p)` to get the itinerary for a specific destination. A trip can have multiple itineraries, one per proposal.
 - **Slug must be unique** — auto-generate it with `slugify(trip.name)` in the view, never ask the user to type it.
+- **confirmed_proposal on Trip** — when the lead confirms a destination, `trip.confirmed_proposal` is set and `trip.status` becomes `confirmed`. Unconfirming clears both.
