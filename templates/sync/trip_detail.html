@@ -255,6 +255,10 @@ function setAvailability(date, status) {
       'X-CSRFToken': getCookie('csrftoken')
     },
     body: 'date=' + date + '&status=' + status
+  }).then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    showToast(data.message || 'Saved!', data.error ? 'danger' : 'success');
   });
 }
 </script>

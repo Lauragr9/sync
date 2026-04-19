@@ -137,6 +137,7 @@ def proposal_create(request, slug):
             proposal.trip = trip
             proposal.proposed_by = request.user
             proposal.save()
+            messages.success(request, f'{proposal.city} added as a destination proposal.')
             return redirect('trip_detail', slug=trip.slug)
     else:
         form = ProposalForm()
@@ -155,6 +156,8 @@ def vote(request, proposal_id):
         user=request.user,
         defaults={'score': score}
     )
+    labels = {1: 'Yes', 0: 'Maybe', -1: 'No'}
+    messages.success(request, f'Voted "{labels[score]}" for {proposal.city}.')
     return redirect('trip_detail', slug=proposal.trip.slug)
 
 @login_required
@@ -205,10 +208,10 @@ def availability(request, slug):
                 defaults={'status': status}
             )
             print("Saved successfully!")
-            return JsonResponse({'ok': True})
+            return JsonResponse({'ok': True, 'message': 'Availability saved!'})
         except Exception as e:
             print(f"ERROR: {e}")
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': str(e), 'message': 'Failed to save availability.'}, status=500)
 
 
     return JsonResponse({'error': 'GET not allowed'}, status=405)
