@@ -2,75 +2,236 @@
 {% block content %}
 
 <style>
-  .trip-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  .dashboard-hero {
+    margin: -1rem 0 2.5rem;
+    padding: 2.5rem 0 2rem;
+    border-bottom: 1px solid #e7e5e4;
+  }
+  .hero-greeting {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1c1917;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  .hero-sub {
+    font-size: 15px;
+    color: #a8a29e;
+    margin-top: 0.3rem;
+  }
+
+  .btn-new-trip {
+    background: #1c1917;
+    color: #fff;
+    border: none;
     border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-new-trip:hover { background: #44403c; color: #fff; transform: translateY(-1px); }
+
+  .new-trip-card {
+    border: 2px dashed #d6d3d1;
+    border-radius: 16px;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 180px;
+    padding: 2rem;
+    text-decoration: none;
+    transition: border-color 0.18s, background 0.18s, transform 0.18s;
+    text-align: center;
+  }
+  .new-trip-card:hover {
+    border-color: #1c1917;
+    background: #fff;
+    transform: translateY(-3px);
+  }
+  .new-trip-card:hover .new-trip-icon {
+    background: #1c1917;
+    color: #fff;
+  }
+  .new-trip-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: #f5f4f0;
+    border: 1px solid #e7e5e4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 0.9rem;
+    transition: background 0.18s, color 0.18s;
+  }
+  .new-trip-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1917;
+    margin-bottom: 4px;
+  }
+  .new-trip-hint {
+    font-size: 12px;
+    color: #a8a29e;
+  }
+
+  /* Theme palettes: accent gradient + card tint + glow shadow */
+  .theme-ocean  { --g1:#0ea5e9; --g2:#38bdf8; --tint:rgba(14,165,233,0.04); --glow:rgba(14,165,233,0.18); }
+  .theme-golden { --g1:#f59e0b; --g2:#fbbf24; --tint:rgba(245,158,11,0.04); --glow:rgba(245,158,11,0.18); }
+  .theme-bloom  { --g1:#22c55e; --g2:#4ade80; --tint:rgba(34,197,94,0.04);  --glow:rgba(34,197,94,0.18);  }
+  .theme-auburn { --g1:#ea580c; --g2:#f97316; --tint:rgba(234,88,12,0.04);  --glow:rgba(234,88,12,0.18);  }
+  .theme-dusk   { --g1:#7c3aed; --g2:#a78bfa; --tint:rgba(124,58,237,0.04); --glow:rgba(124,58,237,0.18); }
+  .theme-frost  { --g1:#6366f1; --g2:#818cf8; --tint:rgba(99,102,241,0.04); --glow:rgba(99,102,241,0.18); }
+
+  .trip-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e7e5e4;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 0 var(--glow, transparent);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
   }
   .trip-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.10), 0 0 0 4px var(--glow, transparent);
+    transform: translateY(-4px);
   }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px;
+  .trip-card-accent {
+    height: 6px;
+    background: linear-gradient(90deg, var(--g1), var(--g2));
+  }
+  .trip-card-body {
+    background: linear-gradient(180deg, var(--tint, transparent) 0%, transparent 60%);
+  }
+
+  .trip-card-body { padding: 1.5rem 1.5rem 1rem; flex: 1; }
+
+  .trip-status {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 99px;
+  }
+  .status-planning  { background: #fef3c7; color: #92400e; }
+  .status-confirmed { background: #d1fae5; color: #065f46; }
+  .status-completed { background: #f3f4f6; color: #4b5563; }
+
+  .trip-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1c1917;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+    margin: 0.5rem 0 0.5rem;
+  }
+  .trip-desc {
+    font-size: 13px;
+    color: #78716c;
+    line-height: 1.55;
+  }
+  .trip-card-footer {
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid #f5f5f4;
+    background: #fafaf9;
+    font-size: 12px;
+    color: #a8a29e;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .trip-date-range {
+    font-size: 13px;
+    font-weight: 500;
+    color: #57534e;
+    margin-top: 0.9rem;
   }
 </style>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="mb-0">Your trips</h2>
-  <a href="{% url 'trip_create' %}" class="btn btn-dark">+ New trip</a>
+<div class="dashboard-hero">
+  <div>
+    <div>
+      <p class="hero-greeting">Where do you want<br>to go next, {{ request.user.username }}?</p>
+      {% if next_trip and days_until == 0 %}
+        <p class="hero-sub">Today's the day — <strong style="color:#57534e;">{{ next_trip.name }}</strong> starts now.</p>
+      {% elif next_trip and days_until <= 7 %}
+        <p class="hero-sub"><strong style="color:#57534e;">{{ next_trip.name }}</strong> is in {{ days_until }} day{{ days_until|pluralize }}. Don't forget to pack.</p>
+      {% elif next_trip and days_until <= 30 %}
+        <p class="hero-sub"><strong style="color:#57534e;">{{ next_trip.name }}</strong> is coming up in {{ days_until }} days.</p>
+      {% elif upcoming_count > 0 %}
+        <p class="hero-sub" style="color:#1e3a5f;">You've got {{ upcoming_count }} trip{{ upcoming_count|pluralize }} coming up. Next: <strong>{{ next_trip.name }}</strong>.</p>
+      {% elif trips %}
+        <p class="hero-sub">{{ season }} is a great time to plan something new.</p>
+      {% else %}
+        <p class="hero-sub">Create your first trip and invite your friends.</p>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 {% if trips %}
-  <div class="row g-3">
-    {% for trip in trips %}
+  <div class="row g-4">
+    {% for item in trips_with_themes %}
+    {% with trip=item.trip theme=item.theme %}
     <div class="col-md-6 col-lg-4">
       <a href="{% url 'trip_detail' trip.slug %}" class="text-decoration-none">
-        <div class="card h-100 trip-card" style="padding: 0; overflow: hidden;">
+        <div class="trip-card theme-{{ theme }}">
 
-          <div class="p-4 pb-3" style="flex:1;">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="card-title text-dark mb-0" style="line-height:1.3;">{{ trip.name }}</h5>
-              <span class="badge ms-2 flex-shrink-0
-                {% if trip.status == 'confirmed' %}bg-success
-                {% elif trip.status == 'completed' %}bg-secondary
-                {% else %}bg-warning text-dark{% endif %}">
-                {{ trip.get_status_display }}
-              </span>
-            </div>
+          <div class="trip-card-accent"></div>
 
+          <div class="trip-card-body" style="padding:1.5rem 1.5rem 1rem;flex:1;">
+            <span class="trip-status status-{{ trip.status }}">{{ trip.get_status_display }}</span>
+            <div class="trip-name">{{ trip.name }}</div>
             {% if trip.description %}
-              <p class="text-muted small mb-3" style="line-height:1.5;">{{ trip.description|truncatewords:14 }}</p>
+              <p class="trip-desc mb-0">{{ trip.description|truncatewords:16 }}</p>
             {% else %}
-              <p class="text-muted small mb-3 fst-italic">No description</p>
+              <p class="trip-desc mb-0" style="font-style:italic;color:#d6d3d1;">No description</p>
             {% endif %}
-
             {% if trip.departure_date %}
-              <p class="small text-dark mb-0">
-                📅 {{ trip.departure_date|date:"d M Y" }}
-                {% if trip.return_date %} → {{ trip.return_date|date:"d M Y" }}{% endif %}
-              </p>
+              <p class="trip-date-range mb-0">{{ trip.departure_date|date:"d M" }} → {{ trip.return_date|date:"d M Y" }}</p>
             {% else %}
-              <p class="small text-muted mb-0 fst-italic">Dates not set</p>
+              <p class="trip-date-range mb-0" style="color:#d6d3d1;font-style:italic;">Dates not set</p>
             {% endif %}
           </div>
 
-          <div class="px-4 py-2 d-flex justify-content-between align-items-center"
-               style="background:#f8f9fa;border-top:1px solid #f0f0f0;font-size:12px;color:#888;">
-            <span>👥 {{ trip.members.count }} member{{ trip.members.count|pluralize }}</span>
+          <div class="trip-card-footer">
+            <span>{{ trip.members.count }} member{{ trip.members.count|pluralize }}</span>
             <span>{{ trip.get_budget_range_display }}</span>
           </div>
 
         </div>
       </a>
     </div>
+    {% endwith %}
     {% endfor %}
+
+    <div class="col-md-6 col-lg-4">
+      <a href="{% url 'trip_create' %}" class="new-trip-card">
+        <div class="new-trip-icon">✈</div>
+        <div class="new-trip-label">Plan a new trip</div>
+        <div class="new-trip-hint">Invite friends, vote on destinations</div>
+      </a>
+    </div>
+
   </div>
+
 {% else %}
-  <div class="text-center py-5">
-    <div style="font-size:3rem;margin-bottom:1rem;">✈️</div>
-    <h4 class="text-dark mb-2">No trips yet</h4>
-    <p class="text-muted mb-4">Create your first trip and invite your friends.</p>
-    <a href="{% url 'trip_create' %}" class="btn btn-dark px-4">Create a trip</a>
+  <div class="text-center" style="padding:5rem 0;">
+    <div style="width:64px;height:64px;background:#fff;border:1px solid #e7e5e4;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:1.75rem;box-shadow:0 2px 8px rgba(0,0,0,0.06);">✈</div>
+    <h3 style="font-weight:700;color:#1c1917;letter-spacing:-0.3px;margin-bottom:0.5rem;">Start planning</h3>
+    <p style="color:#a8a29e;font-size:14px;max-width:280px;margin:0 auto 2rem;">Create your first trip, propose destinations, and invite friends.</p>
+    <a href="{% url 'trip_create' %}" class="btn-new-trip">✈ Plan a new trip</a>
   </div>
 {% endif %}
 

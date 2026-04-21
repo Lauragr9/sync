@@ -15,10 +15,51 @@ from .llm import generate_itinerary as llm_generate
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity, PackingItem
 from django.http import HttpResponse
 
+def _trip_theme(trip):
+    MONTH_THEMES = {
+        1: 'frost', 2: 'frost',
+        3: 'bloom', 4: 'bloom',
+        5: 'ocean', 6: 'ocean',
+        7: 'golden', 8: 'golden',
+        9: 'auburn', 10: 'auburn',
+        11: 'dusk', 12: 'dusk',
+    }
+    FALLBACK = ['ocean', 'golden', 'bloom', 'auburn', 'dusk', 'frost']
+    if trip.departure_date:
+        return MONTH_THEMES[trip.departure_date.month]
+    return FALLBACK[trip.id % len(FALLBACK)]
+
+
 @login_required
 def dashboard(request):
+    from datetime import date as date_type
+    today = date_type.today()
+
     trips = request.user.trips.all()
-    return render(request, 'sync/dashboard.html', {'trips': trips})
+    upcoming = trips.filter(departure_date__gte=today).order_by('departure_date')
+    next_trip = upcoming.first()
+    days_until = (next_trip.departure_date - today).days if next_trip else None
+
+    month = today.month
+    if month in (3, 4, 5):
+        season = 'Spring'
+    elif month in (6, 7, 8):
+        season = 'Summer'
+    elif month in (9, 10, 11):
+        season = 'Autumn'
+    else:
+        season = 'Winter'
+
+    trips_with_themes = [{'trip': t, 'theme': _trip_theme(t)} for t in trips]
+
+    return render(request, 'sync/dashboard.html', {
+        'trips': trips,
+        'trips_with_themes': trips_with_themes,
+        'next_trip': next_trip,
+        'days_until': days_until,
+        'upcoming_count': upcoming.count(),
+        'season': season,
+    })
 
 
 def signup(request):
