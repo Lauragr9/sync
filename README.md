@@ -40,16 +40,25 @@ pip install -r requirements/base.txt
 
 ### 4. Set up the environment
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root with your Groq API key. The app reads this file automatically with `python-dotenv`, so you do not need to edit any Python settings.
 
-```
+Run one of the commands below from the project root to create the file for you:
+
+```bash
+# Bash / WSL / macOS / Linux
+cat > .env <<'EOF'
 GROQ_API_KEY=your_groq_api_key_here
-SECRET_KEY=any-random-string-for-local-dev
+EOF
 ```
 
-The app uses `python-dotenv` to load this automatically.
+```powershell
+# Windows PowerShell
+@'
+GROQ_API_KEY=your_groq_api_key_here
+'@ | Set-Content .env
+```
 
-> AI itinerary generation will silently fail without a valid `GROQ_API_KEY` — all other features work without it.
+Replace `your_groq_api_key_here` with your real Groq API key. AI itinerary generation will not work without `GROQ_API_KEY`, but the rest of the app can still be used.
 
 ### 5. Apply migrations
 

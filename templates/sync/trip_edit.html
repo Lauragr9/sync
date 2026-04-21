@@ -1,10 +1,36 @@
 {% extends 'base.html' %}
 {% block content %}
-  <h2>Edit {{ trip.name }}</h2>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Save changes</button>
-  </form>
-  <a href="{% url 'trip_detail' trip.slug %}">Cancel</a>
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card p-4">
+      <h3 class="mb-4">Edit {{ trip.name }}</h3>
+      <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 small">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-500">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+            {% endif %}
+            {% if field.errors %}
+              <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-dark">Save changes</button>
+          <a href="{% url 'trip_detail' trip.slug %}" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

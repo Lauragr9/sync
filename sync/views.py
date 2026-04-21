@@ -1,11 +1,11 @@
+from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
-from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.text import slugify
-from .forms import TripForm, ProposalForm
+from .forms import AvailabilityForm, LoginForm, ProposalForm, SignUpForm, TripForm
 from .models import Trip, TripMember, DestinationProposal, Vote
 import json
 from datetime import timedelta
@@ -14,6 +14,12 @@ from django.utils import timezone
 from .llm import generate_itinerary as llm_generate
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity, PackingItem
 from django.http import HttpResponse
+
+
+class CustomLoginView(LoginView):
+    template_name = 'registration/login.html'
+    authentication_form = LoginForm
+    redirect_authenticated_user = True
 
 def _trip_theme(trip):
     MONTH_THEMES = {
@@ -64,13 +70,13 @@ def dashboard(request):
 
 def signup(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             return redirect('dashboard')
     else:
-        form = UserCreationForm()
+        form = SignUpForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 
@@ -105,6 +111,7 @@ def trip_detail(request, slug):
     trip = get_object_or_404(Trip, slug=slug)
     members = TripMember.objects.filter(trip=trip).select_related('user')
     proposals = trip.proposals.all().prefetch_related('votes')
+    availability_form = AvailabilityForm(trip=trip)
 
     user_votes = {
         v.proposal_id: v.score
@@ -145,6 +152,8 @@ def trip_detail(request, slug):
     for a in avail_qs:
         grid.setdefault(a.user_id, {})[str(a.date)] = a.status
 
+    my_availability = avail_qs.filter(user=request.user).order_by('date')
+
     packing_items = trip.packing_items.select_related('added_by').order_by('category', 'name')
 
     return render(request, 'sync/trip_detail.html', {
@@ -153,6 +162,8 @@ def trip_detail(request, slug):
         'proposals_with_scores': proposals_with_scores,
         'dates': dates,
         'grid': grid,
+        'availability_form': availability_form,
+        'my_availability': my_availability,
         'packing_items': packing_items,
     })
 
@@ -282,21 +293,28 @@ def availability(request, slug):
     trip = get_object_or_404(Trip, slug=slug)
     
     if request.method == 'POST':
-        try:
-            date = request.POST.get('date')
-            status = request.POST.get('status')
-            print(f"Saving availability: trip={trip.id}, user={request.user.id}, date={date}, status={status}")
-            Availability.objects.update_or_create(
-                trip=trip,
-                user=request.user,
-                date=date,
-                defaults={'status': status}
-            )
-            print("Saved successfully!")
-            return JsonResponse({'ok': True, 'message': 'Availability saved!'})
-        except Exception as e:
-            print(f"ERROR: {e}")
-            return JsonResponse({'error': str(e), 'message': 'Failed to save availability.'}, status=500)
+        form = AvailabilityForm(request.POST, trip=trip)
+        if not form.is_valid():
+            return JsonResponse({
+                'ok': False,
+                'message': 'Please fix the availability form and try again.',
+                'errors': form.errors.get_json_data(),
+            }, status=400)
+
+        cleaned_date = form.cleaned_data['date']
+        cleaned_status = form.cleaned_data['status']
+        Availability.objects.update_or_create(
+            trip=trip,
+            user=request.user,
+            date=cleaned_date,
+            defaults={'status': cleaned_status}
+        )
+        return JsonResponse({
+            'ok': True,
+            'message': 'Availability saved!',
+            'date': cleaned_date.isoformat(),
+            'status': cleaned_status,
+        })
 
 
     return JsonResponse({'error': 'GET not allowed'}, status=405)

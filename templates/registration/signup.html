@@ -5,22 +5,87 @@
   <div class="col-md-4">
     <div class="card p-4">
       <h3 class="mb-4">Sign up</h3>
-      <form method="post">
+      <form method="post" id="signup-form">
         {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2 small">
+            {% for error in form.non_field_errors %}
+              <div>{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
         {% for field in form %}
           <div class="mb-3">
             <label class="form-label">{{ field.label }}</label>
             {{ field }}
             {% if field.help_text %}
-              <div class="form-text">{{ field.help_text }}</div>
+              <div class="form-text">{{ field.help_text|safe }}</div>
+            {% endif %}
+            {% if field.errors %}
+              <div class="invalid-feedback d-block">{{ field.errors|striptags }}</div>
             {% endif %}
           </div>
         {% endfor %}
-        <button type="submit" class="btn btn-dark w-100">Create account</button>
+        <div class="mb-3 small" id="password-rules">
+          <div class="fw-semibold mb-2">Password requirements</div>
+          <div data-rule="length">At least 8 characters</div>
+          <div data-rule="upper">One uppercase letter</div>
+          <div data-rule="lower">One lowercase letter</div>
+          <div data-rule="number">One number</div>
+          <div data-rule="special">One special character</div>
+          <div data-rule="match">Passwords match</div>
+        </div>
+        <button type="submit" class="btn btn-dark w-100" id="signup-submit" disabled>Create account</button>
       </form>
       <p class="text-center mt-3 small">Already have an account? <a href="{% url 'login' %}">Log in</a></p>
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const form = document.getElementById('signup-form');
+  const submitButton = document.getElementById('signup-submit');
+  const password1 = document.getElementById('id_password1');
+  const password2 = document.getElementById('id_password2');
+  const rules = {
+    length: document.querySelector('[data-rule="length"]'),
+    upper: document.querySelector('[data-rule="upper"]'),
+    lower: document.querySelector('[data-rule="lower"]'),
+    number: document.querySelector('[data-rule="number"]'),
+    special: document.querySelector('[data-rule="special"]'),
+    match: document.querySelector('[data-rule="match"]'),
+  };
+
+  function updateRule(el, ok) {
+    if (!el) return;
+    el.style.color = ok ? '#198754' : '#6c757d';
+    el.style.fontWeight = ok ? '600' : '400';
+  }
+
+  function validate() {
+    const value1 = password1.value || '';
+    const value2 = password2.value || '';
+    const checks = {
+      length: value1.length >= 8,
+      upper: /[A-Z]/.test(value1),
+      lower: /[a-z]/.test(value1),
+      number: /\d/.test(value1),
+      special: /[^A-Za-z0-9]/.test(value1),
+      match: value1.length > 0 && value1 === value2,
+    };
+
+    Object.keys(checks).forEach((key) => updateRule(rules[key], checks[key]));
+    submitButton.disabled = !Object.values(checks).every(Boolean) || !form.checkValidity();
+  }
+
+  if (password1 && password2) {
+    password1.addEventListener('input', validate);
+    password2.addEventListener('input', validate);
+    form.addEventListener('submit', validate);
+    validate();
+  }
+})();
+</script>
 
 {% endblock %}

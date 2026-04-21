@@ -130,6 +130,52 @@
 
     <div class="card p-3 mb-4">
       <h5 class="mb-3">Availability</h5>
+      {% if availability_form.non_field_errors %}
+        <div class="alert alert-danger py-2 small mb-3">
+          {% for error in availability_form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <form id="availability-form" class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+          <label for="{{ availability_form.date.id_for_label }}" class="form-label mb-1">Date</label>
+          {{ availability_form.date }}
+          {% if availability_form.date.errors %}
+            <div class="invalid-feedback d-block">{{ availability_form.date.errors|striptags }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-4">
+          <label for="{{ availability_form.status.id_for_label }}" class="form-label mb-1">Status</label>
+          {{ availability_form.status }}
+          {% if availability_form.status.errors %}
+            <div class="invalid-feedback d-block">{{ availability_form.status.errors|striptags }}</div>
+          {% endif %}
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-dark w-100">Save availability</button>
+        </div>
+      </form>
+
+      {% if trip.departure_date and trip.return_date %}
+        <p class="text-muted small mb-3">Pick any date from {{ trip.departure_date }} through {{ trip.return_date }}. Past dates are blocked automatically.</p>
+      {% else %}
+        <div class="alert alert-warning py-2 small mb-3">Set the trip departure and return dates before adding availability.</div>
+      {% endif %}
+
+      {% if my_availability %}
+        <div class="mb-3">
+          <div class="fw-semibold small text-uppercase text-muted mb-2">Your saved dates</div>
+          <div class="d-flex flex-wrap gap-2">
+            {% for entry in my_availability %}
+              <span class="badge rounded-pill text-bg-light border text-dark">
+                {{ entry.date }} · {{ entry.get_status_display }}
+              </span>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+
       {% if dates %}
       <div style="overflow-x:auto">
         <table class="table table-sm availability-table">
@@ -329,6 +375,16 @@ function getCookie(name) {
   }
   return cookieValue;
 }
+function renderAvailabilityErrors(errors) {
+  const message = Object.values(errors || {})
+    .flat()
+    .map(function (entry) {
+      return entry.message || entry;
+    })
+    .join(' ');
+  showToast(message || 'Please check the availability form.', 'danger');
+}
+
 function setAvailability(date, status) {
   fetch("{% url 'availability' trip.slug %}", {
     method: 'POST',
@@ -338,11 +394,46 @@ function setAvailability(date, status) {
     },
     body: 'date=' + date + '&status=' + status
   }).then(function(r) {
-    return r.json();
-  }).then(function(data) {
-    showToast(data.message || 'Saved!', data.error ? 'danger' : 'success');
+    return r.json().then(function(data) {
+      return { ok: r.ok, data: data };
+    });
+  }).then(function(result) {
+    if (!result.ok) {
+      renderAvailabilityErrors(result.data.errors);
+      return;
+    }
+    showToast(result.data.message || 'Saved!', 'success');
+    window.location.reload();
+  }).catch(function() {
+    showToast('Failed to save availability.', 'danger');
   });
 }
+
+document.getElementById('availability-form').addEventListener('submit', function (event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  fetch("{% url 'availability' trip.slug %}", {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: new URLSearchParams(formData).toString()
+  }).then(function(r) {
+    return r.json().then(function(data) {
+      return { ok: r.ok, data: data };
+    });
+  }).then(function(result) {
+    if (!result.ok) {
+      renderAvailabilityErrors(result.data.errors);
+      return;
+    }
+    showToast(result.data.message || 'Availability saved!', 'success');
+    window.location.reload();
+  }).catch(function() {
+    showToast('Failed to save availability.', 'danger');
+  });
+});
 </script>
 
 {% endblock %}
