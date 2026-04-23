@@ -1,3 +1,7 @@
+# Defines all database models for Sync. Each class maps to a database table and
+# represents a core concept: trips, members, destination proposals, votes,
+# availability, AI-generated itineraries, and packing lists.
+
 import uuid
 from django.db import models
 from django.contrib.auth.models import User

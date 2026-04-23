@@ -1,3 +1,7 @@
+# Contains all Django form classes used across Sync. Forms handle input validation,
+# widget styling (Bootstrap classes), and server-side rules for login, signup,
+# trip creation, destination proposals, and availability submission.
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.exceptions import ValidationError

@@ -1,3 +1,6 @@
+# Maps URL patterns to their corresponding view functions for the sync app.
+# Covers trips, proposals, voting, availability, packing lists, and itinerary generation.
+
 from django.urls import path
 from . import views
 

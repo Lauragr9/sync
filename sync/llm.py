@@ -1,3 +1,7 @@
+# Handles AI itinerary generation using the Groq API (LLaMA 3.3 70B).
+# Uses a two-pass approach: first fetches a verified list of real venues,
+# then generates a structured day-by-day JSON itinerary using only those venues.
+
 import os
 import json
 import re

@@ -1,3 +1,6 @@
+# Registers all Sync models with Django's admin interface, making them
+# browsable and editable at /admin/ during development.
+
 from django.contrib import admin
 from .models import (Trip, TripMember, DestinationProposal,
                      Vote, Availability, Itinerary,

@@ -1,3 +1,7 @@
+# Handles all request/response logic for Sync. Each view function receives an
+# HTTP request, queries the models as needed, and either renders a template or
+# returns a JSON response. Authentication and permission checks are also done here.
+
 from django.contrib.auth.views import LoginView
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
