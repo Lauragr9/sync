@@ -130,51 +130,6 @@
 
     <div class="card p-3 mb-4">
       <h5 class="mb-3">Availability</h5>
-      {% if availability_form.non_field_errors %}
-        <div class="alert alert-danger py-2 small mb-3">
-          {% for error in availability_form.non_field_errors %}
-            <div>{{ error }}</div>
-          {% endfor %}
-        </div>
-      {% endif %}
-      <form id="availability-form" class="row g-2 align-items-end mb-3">
-        <div class="col-md-4">
-          <label for="{{ availability_form.date.id_for_label }}" class="form-label mb-1">Date</label>
-          {{ availability_form.date }}
-          {% if availability_form.date.errors %}
-            <div class="invalid-feedback d-block">{{ availability_form.date.errors|striptags }}</div>
-          {% endif %}
-        </div>
-        <div class="col-md-4">
-          <label for="{{ availability_form.status.id_for_label }}" class="form-label mb-1">Status</label>
-          {{ availability_form.status }}
-          {% if availability_form.status.errors %}
-            <div class="invalid-feedback d-block">{{ availability_form.status.errors|striptags }}</div>
-          {% endif %}
-        </div>
-        <div class="col-md-4">
-          <button type="submit" class="btn btn-dark w-100">Save availability</button>
-        </div>
-      </form>
-
-      {% if trip.departure_date and trip.return_date %}
-        <p class="text-muted small mb-3">Pick any date from {{ trip.departure_date }} through {{ trip.return_date }}. Past dates are blocked automatically.</p>
-      {% else %}
-        <div class="alert alert-warning py-2 small mb-3">Set the trip departure and return dates before adding availability.</div>
-      {% endif %}
-
-      {% if my_availability %}
-        <div class="mb-3">
-          <div class="fw-semibold small text-uppercase text-muted mb-2">Your saved dates</div>
-          <div class="d-flex flex-wrap gap-2">
-            {% for entry in my_availability %}
-              <span class="badge rounded-pill text-bg-light border text-dark">
-                {{ entry.date }} · {{ entry.get_status_display }}
-              </span>
-            {% endfor %}
-          </div>
-        </div>
-      {% endif %}
 
       {% if dates %}
       <div style="overflow-x:auto">
@@ -196,12 +151,18 @@
                 {% get_avail grid member.user.id date as current_status %}
                 {% if member.user == request.user %}
                   {% with date_str=date|date:"Y-m-d" %}
-                  <select onchange="setAvailability('{{ date_str }}', this.value)" class="form-select form-select-sm" style="font-size:11px;padding:2px 4px;min-width:70px;">
+                  <select class="avail-select form-select form-select-sm" data-date="{{ date_str }}" style="font-size:11px;padding:2px 4px;min-width:70px;">
                     <option value="">—</option>
                     <option value="available" {% if current_status == "available" %}selected{% endif %}>Yes</option>
                     <option value="maybe" {% if current_status == "maybe" %}selected{% endif %}>Maybe</option>
                     <option value="unavailable" {% if current_status == "unavailable" %}selected{% endif %}>No</option>
                   </select>
+                  <span class="avail-static" style="display:none;font-size:12px;">
+                    {% if current_status == "available" %}<span class="text-success fw-bold">Yes</span>
+                    {% elif current_status == "maybe" %}<span class="text-warning fw-bold">?</span>
+                    {% elif current_status == "unavailable" %}<span class="text-danger fw-bold">No</span>
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  </span>
                   {% endwith %}
                 {% else %}
                   {% if current_status == "available" %}<span class="text-success fw-bold">Yes</span>
@@ -215,6 +176,9 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      <div class="d-flex justify-content-end mt-2">
+        <button id="save-availability-btn" class="btn btn-dark btn-sm">Save availability</button>
       </div>
       {% else %}
         <p class="text-muted small">Set departure and return dates to enable the availability calendar.</p>
@@ -385,55 +349,60 @@ function renderAvailabilityErrors(errors) {
   showToast(message || 'Please check the availability form.', 'danger');
 }
 
-function setAvailability(date, status) {
-  fetch("{% url 'availability' trip.slug %}", {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-CSRFToken': getCookie('csrftoken')
-    },
-    body: 'date=' + date + '&status=' + status
-  }).then(function(r) {
-    return r.json().then(function(data) {
-      return { ok: r.ok, data: data };
-    });
-  }).then(function(result) {
-    if (!result.ok) {
-      renderAvailabilityErrors(result.data.errors);
-      return;
-    }
-    showToast(result.data.message || 'Saved!', 'success');
-    window.location.reload();
-  }).catch(function() {
-    showToast('Failed to save availability.', 'danger');
+var LABELS = { available: '<span class="text-success fw-bold">Yes</span>', maybe: '<span class="text-warning fw-bold">?</span>', unavailable: '<span class="text-danger fw-bold">No</span>', '': '<span class="text-muted">—</span>' };
+
+function lockAvailability() {
+  document.querySelectorAll('.avail-select').forEach(function(sel) {
+    var staticEl = sel.nextElementSibling;
+    staticEl.innerHTML = LABELS[sel.value] || LABELS[''];
+    sel.style.display = 'none';
+    staticEl.style.display = 'inline';
   });
+  var btn = document.getElementById('save-availability-btn');
+  btn.textContent = 'Edit availability';
+  btn.dataset.mode = 'edit';
 }
 
-document.getElementById('availability-form').addEventListener('submit', function (event) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
-  fetch("{% url 'availability' trip.slug %}", {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-CSRFToken': getCookie('csrftoken')
-    },
-    body: new URLSearchParams(formData).toString()
-  }).then(function(r) {
-    return r.json().then(function(data) {
-      return { ok: r.ok, data: data };
-    });
-  }).then(function(result) {
-    if (!result.ok) {
-      renderAvailabilityErrors(result.data.errors);
+function unlockAvailability() {
+  document.querySelectorAll('.avail-select').forEach(function(sel) {
+    sel.style.display = '';
+    sel.nextElementSibling.style.display = 'none';
+  });
+  var btn = document.getElementById('save-availability-btn');
+  btn.textContent = 'Save availability';
+  btn.dataset.mode = 'save';
+}
+
+var saveBtn = document.getElementById('save-availability-btn');
+if (saveBtn) {
+  saveBtn.addEventListener('click', function() {
+    if (saveBtn.dataset.mode === 'edit') {
+      unlockAvailability();
       return;
     }
-    showToast(result.data.message || 'Availability saved!', 'success');
-    window.location.reload();
-  }).catch(function() {
-    showToast('Failed to save availability.', 'danger');
+    var selects = document.querySelectorAll('.avail-select');
+    var promises = [];
+    selects.forEach(function(sel) {
+      if (!sel.value) return;
+      promises.push(
+        fetch("{% url 'availability' trip.slug %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+          },
+          body: 'date=' + sel.dataset.date + '&status=' + sel.value
+        })
+      );
+    });
+    Promise.all(promises).then(function() {
+      lockAvailability();
+      showToast('Availability saved!', 'success');
+    }).catch(function() {
+      showToast('Failed to save availability.', 'danger');
+    });
   });
-});
+}
 </script>
 
 {% endblock %}
