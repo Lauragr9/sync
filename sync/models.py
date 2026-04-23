@@ -31,6 +31,7 @@ class Trip(models.Model):
                               null=True, related_name='led_trips')
     members             = models.ManyToManyField(User, through='TripMember',
                               related_name='trips')
+    # related_name='+' suppresses the reverse accessor since we never query proposals → their confirming trip.
     confirmed_proposal  = models.ForeignKey('DestinationProposal', on_delete=models.SET_NULL,
                               null=True, blank=True, related_name='+')
     created_at          = models.DateTimeField(auto_now_add=True)
@@ -109,7 +110,7 @@ class Itinerary(models.Model):
                        related_name='itineraries')
     proposal     = models.ForeignKey('DestinationProposal', on_delete=models.CASCADE,
                        null=True, blank=True, related_name='itineraries')
-    llm_raw      = models.TextField(blank=True)
+    llm_raw      = models.TextField(blank=True)  # stores the raw LLM response for debugging
     status       = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     generated_at = models.DateTimeField(null=True, blank=True)
 

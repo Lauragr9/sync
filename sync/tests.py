@@ -1,3 +1,3 @@
-from django.test import TestCase
+# This file is part of Django's default project structure, generated automatically
+# when creating a new app. No tests were written for this project.
 
-# Create your tests here.

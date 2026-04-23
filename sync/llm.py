@@ -51,6 +51,7 @@ def generate_itinerary(trip, proposal):
     else:
         nights = 3
 
+    # Cap at 5 nights to keep prompts within token limits and avoid overly long responses.
     display_nights = min(nights, 5)
     members_count = trip.members.count()
     budget = trip.get_budget_range_display()

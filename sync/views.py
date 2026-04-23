@@ -9,15 +9,11 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils.text import slugify
-from .forms import AvailabilityForm, LoginForm, ProposalForm, SignUpForm, TripForm
-from .models import Trip, TripMember, DestinationProposal, Vote
-import json
-from datetime import timedelta
-from .models import Trip, TripMember, DestinationProposal, Vote, Availability
 from django.utils import timezone
-from .llm import generate_itinerary as llm_generate
+from datetime import timedelta
+from .forms import AvailabilityForm, LoginForm, ProposalForm, SignUpForm, TripForm
 from .models import Trip, TripMember, DestinationProposal, Vote, Availability, Itinerary, ItineraryDay, ItineraryActivity, PackingItem
-from django.http import HttpResponse
+from .llm import generate_itinerary as llm_generate
 
 
 class CustomLoginView(LoginView):
@@ -26,6 +22,8 @@ class CustomLoginView(LoginView):
     redirect_authenticated_user = True
 
 def _trip_theme(trip):
+    # Assigns a colour theme based on departure month so seasonal trips feel visually distinct.
+    # If no date is set, spreads trips across themes using the trip ID to avoid all cards looking the same.
     MONTH_THEMES = {
         1: 'frost', 2: 'frost',
         3: 'bloom', 4: 'bloom',
@@ -91,6 +89,7 @@ def trip_create(request):
         if form.is_valid():
             trip = form.save(commit=False)
             trip.lead = request.user
+            # Ensures slug uniqueness by appending a counter if the base slug already exists.
             base_slug = slugify(trip.name)
             slug = base_slug
             counter = 1
@@ -348,6 +347,7 @@ def itinerary_generate(request, slug):
 
             try:
                 data, raw = llm_generate(trip, proposal)
+                # Delete existing days before saving new ones so regeneration doesn't duplicate content.
                 itinerary.days.all().delete()
 
                 for d in data['days']:

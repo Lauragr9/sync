@@ -375,6 +375,12 @@ function unlockAvailability() {
 
 var saveBtn = document.getElementById('save-availability-btn');
 if (saveBtn) {
+  // Auto-lock on page load if the user already has availability saved in the DB.
+  var hasExistingData = Array.from(document.querySelectorAll('.avail-select')).some(function(sel) {
+    return sel.value !== '';
+  });
+  if (hasExistingData) lockAvailability();
+
   saveBtn.addEventListener('click', function() {
     if (saveBtn.dataset.mode === 'edit') {
       unlockAvailability();
